@@ -1,0 +1,8 @@
+*~
+*.swp
+*.swo
+*.log
+.vscode
+node_modules/
+coverage/
+dist/

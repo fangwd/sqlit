@@ -1,0 +1,749 @@
+{
+    "name": "",
+    "tables": [
+        {
+            "name": "user",
+            "columns": [
+                {
+                    "name": "id",
+                    "type": "integer",
+                    "nullable": false,
+                    "autoIncrement": true
+                },
+                {
+                    "name": "email",
+                    "type": "varchar",
+                    "size": 200,
+                    "nullable": true
+                },
+                {
+                    "name": "first_name",
+                    "type": "varchar",
+                    "size": 30,
+                    "nullable": true
+                },
+                {
+                    "name": "last_name",
+                    "type": "varchar",
+                    "size": 100,
+                    "nullable": true
+                },
+                {
+                    "name": "status",
+                    "type": "int",
+                    "nullable": true
+                }
+            ],
+            "constraints": [
+                {
+                    "primaryKey": true,
+                    "columns": [
+                        "id"
+                    ]
+                },
+                {
+                    "unique": true,
+                    "columns": [
+                        "email"
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "group",
+            "columns": [
+                {
+                    "name": "id",
+                    "type": "integer",
+                    "nullable": false,
+                    "autoIncrement": true
+                },
+                {
+                    "name": "name",
+                    "type": "varchar",
+                    "size": 200,
+                    "nullable": true
+                }
+            ],
+            "constraints": [
+                {
+                    "primaryKey": true,
+                    "columns": [
+                        "id"
+                    ]
+                },
+                {
+                    "unique": true,
+                    "columns": [
+                        "name"
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "user_group",
+            "columns": [
+                {
+                    "name": "id",
+                    "type": "integer",
+                    "nullable": false,
+                    "autoIncrement": true
+                },
+                {
+                    "name": "user_id",
+                    "type": "integer",
+                    "nullable": true
+                },
+                {
+                    "name": "group_id",
+                    "type": "integer",
+                    "nullable": true
+                },
+                {
+                    "name": "date_added",
+                    "type": "datetime",
+                    "nullable": true,
+                    "default": "current_timestamp",
+                    "default_quotable": false
+                }
+            ],
+            "constraints": [
+                {
+                    "columns": [
+                        "user_id"
+                    ],
+                    "references": {
+                        "table": "user",
+                        "columns": [
+                            "id"
+                        ]
+                    }
+                },
+                {
+                    "columns": [
+                        "group_id"
+                    ],
+                    "references": {
+                        "table": "group",
+                        "columns": [
+                            "id"
+                        ]
+                    }
+                },
+                {
+                    "primaryKey": true,
+                    "columns": [
+                        "id"
+                    ]
+                },
+                {
+                    "unique": true,
+                    "columns": [
+                        "user_id",
+                        "group_id"
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "category",
+            "columns": [
+                {
+                    "name": "id",
+                    "type": "integer",
+                    "nullable": false,
+                    "autoIncrement": true
+                },
+                {
+                    "name": "name",
+                    "type": "varchar",
+                    "size": 200,
+                    "nullable": true
+                },
+                {
+                    "name": "description",
+                    "type": "varchar",
+                    "size": 200,
+                    "nullable": true
+                },
+                {
+                    "name": "parent_id",
+                    "type": "integer",
+                    "nullable": true
+                }
+            ],
+            "constraints": [
+                {
+                    "columns": [
+                        "parent_id"
+                    ],
+                    "references": {
+                        "table": "category",
+                        "columns": [
+                            "id"
+                        ]
+                    }
+                },
+                {
+                    "primaryKey": true,
+                    "columns": [
+                        "id"
+                    ]
+                },
+                {
+                    "unique": true,
+                    "columns": [
+                        "parent_id",
+                        "name"
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "category_tree",
+            "columns": [
+                {
+                    "name": "id",
+                    "type": "integer",
+                    "nullable": false,
+                    "autoIncrement": true
+                },
+                {
+                    "name": "ancestor_id",
+                    "type": "integer",
+                    "nullable": false
+                },
+                {
+                    "name": "descendant_id",
+                    "type": "integer",
+                    "nullable": false
+                },
+                {
+                    "name": "distance",
+                    "type": "int",
+                    "nullable": true
+                }
+            ],
+            "constraints": [
+                {
+                    "columns": [
+                        "ancestor_id"
+                    ],
+                    "references": {
+                        "table": "category",
+                        "columns": [
+                            "id"
+                        ]
+                    }
+                },
+                {
+                    "columns": [
+                        "descendant_id"
+                    ],
+                    "references": {
+                        "table": "category",
+                        "columns": [
+                            "id"
+                        ]
+                    }
+                },
+                {
+                    "primaryKey": true,
+                    "columns": [
+                        "id"
+                    ]
+                },
+                {
+                    "unique": true,
+                    "columns": [
+                        "ancestor_id",
+                        "descendant_id"
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "product",
+            "columns": [
+                {
+                    "name": "id",
+                    "type": "integer",
+                    "nullable": false,
+                    "autoIncrement": true
+                },
+                {
+                    "name": "sku",
+                    "type": "char",
+                    "size": 40,
+                    "nullable": true
+                },
+                {
+                    "name": "name",
+                    "type": "char",
+                    "size": 200,
+                    "nullable": true
+                },
+                {
+                    "name": "price",
+                    "type": "float",
+                    "nullable": true
+                },
+                {
+                    "name": "stock_quantity",
+                    "type": "float",
+                    "nullable": true
+                },
+                {
+                    "name": "status",
+                    "type": "int",
+                    "nullable": true
+                }
+            ],
+            "constraints": [
+                {
+                    "primaryKey": true,
+                    "columns": [
+                        "id"
+                    ]
+                },
+                {
+                    "unique": true,
+                    "columns": [
+                        "sku"
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "product_category",
+            "columns": [
+                {
+                    "name": "id",
+                    "type": "integer",
+                    "nullable": false,
+                    "autoIncrement": true
+                },
+                {
+                    "name": "product_id",
+                    "type": "integer",
+                    "nullable": true
+                },
+                {
+                    "name": "category_id",
+                    "type": "integer",
+                    "nullable": true
+                }
+            ],
+            "constraints": [
+                {
+                    "columns": [
+                        "product_id"
+                    ],
+                    "references": {
+                        "table": "product",
+                        "columns": [
+                            "id"
+                        ]
+                    }
+                },
+                {
+                    "columns": [
+                        "category_id"
+                    ],
+                    "references": {
+                        "table": "category",
+                        "columns": [
+                            "id"
+                        ]
+                    }
+                },
+                {
+                    "primaryKey": true,
+                    "columns": [
+                        "id"
+                    ]
+                },
+                {
+                    "unique": true,
+                    "columns": [
+                        "product_id",
+                        "category_id"
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "delivery_address",
+            "columns": [
+                {
+                    "name": "id",
+                    "type": "integer",
+                    "nullable": false,
+                    "autoIncrement": true
+                },
+                {
+                    "name": "street_address",
+                    "type": "varchar",
+                    "size": 100,
+                    "nullable": false
+                },
+                {
+                    "name": "city",
+                    "type": "varchar",
+                    "size": 30,
+                    "nullable": false
+                },
+                {
+                    "name": "state",
+                    "type": "varchar",
+                    "size": 30,
+                    "nullable": false
+                },
+                {
+                    "name": "country",
+                    "type": "varchar",
+                    "size": 30,
+                    "nullable": false
+                },
+                {
+                    "name": "postal_code",
+                    "type": "varchar",
+                    "size": 8,
+                    "nullable": false
+                }
+            ],
+            "constraints": [
+                {
+                    "primaryKey": true,
+                    "columns": [
+                        "id"
+                    ]
+                },
+                {
+                    "unique": true,
+                    "columns": [
+                        "street_address",
+                        "city",
+                        "state",
+                        "country"
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "order",
+            "columns": [
+                {
+                    "name": "id",
+                    "type": "integer",
+                    "nullable": false,
+                    "autoIncrement": true
+                },
+                {
+                    "name": "code",
+                    "type": "char",
+                    "size": 40,
+                    "nullable": true
+                },
+                {
+                    "name": "date_created",
+                    "type": "datetime",
+                    "nullable": true,
+                    "default": "current_timestamp",
+                    "default_quotable": false
+                },
+                {
+                    "name": "user_id",
+                    "type": "integer",
+                    "nullable": true
+                },
+                {
+                    "name": "delivery_address_id",
+                    "type": "integer",
+                    "nullable": true
+                },
+                {
+                    "name": "status",
+                    "type": "int",
+                    "nullable": true
+                }
+            ],
+            "constraints": [
+                {
+                    "columns": [
+                        "delivery_address_id"
+                    ],
+                    "references": {
+                        "table": "delivery_address",
+                        "columns": [
+                            "id"
+                        ]
+                    }
+                },
+                {
+                    "columns": [
+                        "user_id"
+                    ],
+                    "references": {
+                        "table": "user",
+                        "columns": [
+                            "id"
+                        ]
+                    }
+                },
+                {
+                    "primaryKey": true,
+                    "columns": [
+                        "id"
+                    ]
+                },
+                {
+                    "unique": true,
+                    "columns": [
+                        "code"
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "order_item",
+            "columns": [
+                {
+                    "name": "id",
+                    "type": "integer",
+                    "nullable": false,
+                    "autoIncrement": true
+                },
+                {
+                    "name": "order_id",
+                    "type": "integer",
+                    "nullable": true
+                },
+                {
+                    "name": "product_id",
+                    "type": "integer",
+                    "nullable": true
+                },
+                {
+                    "name": "quantity",
+                    "type": "float",
+                    "nullable": true
+                }
+            ],
+            "constraints": [
+                {
+                    "columns": [
+                        "order_id"
+                    ],
+                    "references": {
+                        "table": "order",
+                        "columns": [
+                            "id"
+                        ]
+                    }
+                },
+                {
+                    "columns": [
+                        "product_id"
+                    ],
+                    "references": {
+                        "table": "product",
+                        "columns": [
+                            "id"
+                        ]
+                    }
+                },
+                {
+                    "primaryKey": true,
+                    "columns": [
+                        "id"
+                    ]
+                },
+                {
+                    "name": "order_product",
+                    "unique": true,
+                    "columns": [
+                        "order_id",
+                        "product_id"
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "order_shipping",
+            "columns": [
+                {
+                    "name": "order_id",
+                    "type": "integer",
+                    "nullable": false
+                },
+                {
+                    "name": "status",
+                    "type": "int",
+                    "nullable": true
+                }
+            ],
+            "constraints": [
+                {
+                    "columns": [
+                        "order_id"
+                    ],
+                    "references": {
+                        "table": "order",
+                        "columns": [
+                            "id"
+                        ]
+                    },
+                    "primaryKey": true
+                }
+            ]
+        },
+        {
+            "name": "order_shipping_event",
+            "columns": [
+                {
+                    "name": "id",
+                    "type": "integer",
+                    "nullable": false,
+                    "autoIncrement": true
+                },
+                {
+                    "name": "order_shipping_id",
+                    "type": "integer",
+                    "nullable": true
+                },
+                {
+                    "name": "event_time",
+                    "type": "datetime",
+                    "nullable": true
+                },
+                {
+                    "name": "event_description",
+                    "type": "char",
+                    "size": 200,
+                    "nullable": true
+                }
+            ],
+            "constraints": [
+                {
+                    "columns": [
+                        "order_shipping_id"
+                    ],
+                    "references": {
+                        "table": "order_shipping",
+                        "columns": [
+                            "order_id"
+                        ]
+                    }
+                },
+                {
+                    "primaryKey": true,
+                    "columns": [
+                        "id"
+                    ]
+                },
+                {
+                    "unique": true,
+                    "columns": [
+                        "order_shipping_id",
+                        "event_time"
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "store",
+            "columns": [
+                {
+                    "name": "id",
+                    "type": "integer",
+                    "nullable": false,
+                    "autoIncrement": true
+                },
+                {
+                    "name": "name",
+                    "type": "varchar",
+                    "size": 200,
+                    "nullable": true
+                }
+            ],
+            "constraints": [
+                {
+                    "primaryKey": true,
+                    "columns": [
+                        "id"
+                    ]
+                },
+                {
+                    "unique": true,
+                    "columns": [
+                        "name"
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "store_product",
+            "columns": [
+                {
+                    "name": "id",
+                    "type": "integer",
+                    "nullable": false,
+                    "autoIncrement": true
+                },
+                {
+                    "name": "store_id",
+                    "type": "integer",
+                    "nullable": true
+                },
+                {
+                    "name": "product_id",
+                    "type": "integer",
+                    "nullable": true
+                },
+                {
+                    "name": "price",
+                    "type": "float",
+                    "nullable": true
+                }
+            ],
+            "constraints": [
+                {
+                    "columns": [
+                        "store_id"
+                    ],
+                    "references": {
+                        "table": "store",
+                        "columns": [
+                            "id"
+                        ]
+                    }
+                },
+                {
+                    "columns": [
+                        "product_id"
+                    ],
+                    "references": {
+                        "table": "product",
+                        "columns": [
+                            "id"
+                        ]
+                    }
+                },
+                {
+                    "primaryKey": true,
+                    "columns": [
+                        "id"
+                    ]
+                },
+                {
+                    "unique": true,
+                    "columns": [
+                        "store_id",
+                        "product_id"
+                    ]
+                }
+            ]
+        }
+    ]
+}
