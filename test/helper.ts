@@ -136,7 +136,7 @@ export function connectToDatabase(name: string, schema?: Schema): Database {
     schema = new Schema(getExampleData());
   }
   const pool = createTestConnectionPool(name);
-  return new Database(schema, pool);
+  return new Database(pool, schema);
 }
 
 export function getId(length: number = 8) {

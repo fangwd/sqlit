@@ -11,7 +11,7 @@ afterAll(() => helper.dropDatabase(NAME));
 
 test('append', () => {
   const schema = new Schema(helper.getExampleData());
-  const db = new Database(schema);
+  const db = new Database(null, schema);
   const user = db.append('user', { email: 'user@example.com' });
   const user2 = db.append('user', { email: 'user@example.com' });
   expect(user).toBe(user2);
@@ -24,7 +24,7 @@ test('append', () => {
 
 test('append #2', () => {
   const schema = new Schema(helper.getExampleData());
-  const db = new Database(schema);
+  const db = new Database(null, schema);
   const user = db.User({ email: 'user@example.com' });
   expect(user instanceof Record).toBe(true);
   expect(user.email).toBe('user@example.com');
@@ -86,20 +86,22 @@ test('save #2', async done => {
   done();
 });
 
-test('save #3', async done => {
+test('save #3', done => {
   const schema = new Schema(helper.getExampleData());
   const db = helper.connectToDatabase(NAME, schema);
   const user = db.User({ email: 'saved03@example.com' });
   const order_1 = db.Order({ code: 'saved03-1', user });
   const order_2 = db.Order({ code: 'saved03-2', user });
-  await order_1.save();
-  await order_2.save();
-  const saved_0 = await db.table('user').get({ email: 'saved03@example.com' });
-  const saved_1 = await db.table('order').get({ code: 'saved03-1' });
-  const saved_2 = await db.table('order').get({ code: 'saved03-1' });
-  expect(saved_1.user.id).toBe(saved_0.id);
-  expect(saved_2.user.id).toBe(saved_0.id);
-  done();
+  Promise.all([order_1.save(), order_2.save()]).then(async () => {
+    const saved_0 = await db
+      .table('user')
+      .get({ email: 'saved03@example.com' });
+    const saved_1 = await db.table('order').get({ code: 'saved03-1' });
+    const saved_2 = await db.table('order').get({ code: 'saved03-1' });
+    expect(saved_1.user.id).toBe(saved_0.id);
+    expect(saved_2.user.id).toBe(saved_0.id);
+    done();
+  });
 });
 
 test('save #4', async done => {

@@ -3,7 +3,6 @@ import { Database, Table, Record, Document, toDocument } from './database';
 import { Connection, Row, Value } from './engine';
 import { encodeFilter } from './filter';
 
-import DataLoader = require('dataloader');
 import { SimpleField } from './model';
 
 export enum FlushMethod {
@@ -62,22 +61,12 @@ export const RecordProxy = {
 };
 
 class FlushContext {
-  store: RecordStore;
+  connection: Connection;
   visited: Set<Record> = new Set();
   promises = [];
 
-  constructor(store: RecordStore) {
-    this.store = store;
-  }
-}
-
-export class RecordStore {
-  inserter: DataLoader<Record, Record>;
-
   constructor(connection: Connection) {
-    this.inserter = new DataLoader<Record, Record>((records: Record[]) =>
-      Promise.all(records.map(record => _persist(connection, this, record)))
-    );
+    this.connection = connection;
   }
 }
 
@@ -96,7 +85,7 @@ function collectParentFields(
       if (value.__primaryKey() === undefined) {
         if (value.__flushable(perfect)) {
           // assert value.__state.method === FlushMethod.INSERT
-          const promise = context.store.inserter.load(value);
+          const promise = _persist(context.connection, value);
           context.promises.push(promise);
         } else {
           collectParentFields(value, context, perfect);
@@ -110,17 +99,15 @@ export function flushRecord(
   connection: Connection,
   record: Record
 ): Promise<any> {
-  const store = new RecordStore(connection);
-
   return new Promise((resolve, reject) => {
     function __resolve() {
-      const context = new FlushContext(store);
+      const context = new FlushContext(connection);
       collectParentFields(record, context, true);
       if (context.promises.length > 0) {
         Promise.all(context.promises).then(() => __resolve());
       } else {
         if (record.__flushable(false)) {
-          _persist(connection, store, record).then(() => {
+          _persist(connection, record).then(() => {
             if (!record.__dirty()) {
               resolve(record);
             } else {
@@ -128,7 +115,7 @@ export function flushRecord(
             }
           });
         } else {
-          const context = new FlushContext(store);
+          const context = new FlushContext(connection);
           collectParentFields(record, context, false);
           if (context.promises.length > 0) {
             Promise.all(context.promises).then(() => __resolve());
@@ -149,11 +136,7 @@ export function flushRecord(
  *
  * @param record Record to be flushed to disk
  */
-function _persist(
-  connection: Connection,
-  store: RecordStore,
-  record: Record
-): Promise<Record> {
+function _persist(connection: Connection, record: Record): Promise<Record> {
   const method = record.__state.method;
   const model = record.__table.model;
   const filter = model.getUniqueFields(record.__data);

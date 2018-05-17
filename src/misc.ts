@@ -57,12 +57,3 @@ export function toPascalCase(s: string): string {
 export function toArray(args): Array<any> {
   return Array.isArray(args) ? args : [args];
 }
-
-export const DefaultEscape = {
-  escapeId: s => '`' + s + '`',
-  escape: s => "'" + (s + '').replace(/'/g, "\\'") + "'"
-};
-
-export function firstOf(object) {
-  return object[Object.keys(object)[0]];
-}

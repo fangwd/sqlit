@@ -4,8 +4,7 @@ import { Schema } from '../src/model';
 const NAME = 'tree';
 
 beforeAll(() => helper.createDatabase(NAME, false));
-
-//afterAll(() => helper.dropDatabase(NAME));
+afterAll(() => helper.dropDatabase(NAME));
 
 test('create', async done => {
   const table = getDatabase().table('category');

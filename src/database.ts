@@ -1,4 +1,4 @@
-import { Value } from './engine';
+import { Value, ConnectionInfo, createConnectionPool } from './engine';
 
 export type Document = {
   [key: string]: Value | Value[] | Document | Document[];
@@ -14,10 +14,17 @@ import {
   ForeignKeyField,
   RelatedField,
   ColumnInfo,
-  UniqueKey
+  UniqueKey,
+  SchemaConfig
 } from './model';
 
-import { Connection, ConnectionPool, Row } from './engine';
+import {
+  Connection,
+  ConnectionPool,
+  Row,
+  getInformationSchema
+} from './engine';
+
 import { encodeFilter, QueryBuilder } from './filter';
 import { toArray } from './misc';
 
@@ -41,14 +48,40 @@ class ClosureTable {
 }
 
 export class Database {
+  name: string;
   schema: Schema;
   pool: ConnectionPool;
   tableMap: { [key: string]: Table } = {};
   tableList: Table[] = [];
 
-  constructor(schema: Schema, pool: ConnectionPool) {
+  constructor(connection: ConnectionPool | ConnectionInfo, schema?: Schema) {
+    if (connection instanceof ConnectionPool) {
+      this.pool = connection;
+    } else if (connection) {
+      this.pool = createConnectionPool(
+        connection.dialect,
+        connection.connection
+      );
+      this.name = connection.connection.database || connection.connection.name;
+    }
+    if (schema) this.setSchema(schema);
+  }
+
+  buildSchema(name: string, config?: SchemaConfig): Promise<Schema> {
+    if (this.schema) return Promise.resolve(this.schema);
+    return new Promise(resolve =>
+      this.pool.getConnection().then(connection =>
+        getInformationSchema(connection, name || this.name).then(schemaInfo => {
+          const schema = new Schema(schemaInfo);
+          this.setSchema(schema);
+          resolve(schema);
+        })
+      )
+    );
+  }
+
+  private setSchema(schema: Schema) {
     this.schema = schema;
-    this.pool = pool;
 
     for (const model of schema.models) {
       const table = new Table(this, model);
@@ -707,7 +740,7 @@ export class Table {
           const filter = { [field.name]: id, ...where };
           promises.push(table._modify(connection, data, filter));
         }
-      } else if (method.startsWith('delete')) {
+      } else if (method === 'delete') {
         if (related.throughField) {
           promises.push(this._deleteThrough(connection, related, id, args));
           continue;
@@ -717,7 +750,7 @@ export class Table {
           [field.name]: id
         }));
         promises.push(table._delete(connection, filter as Filter));
-      } else if (method.startsWith('disconnect')) {
+      } else if (method === 'disconnect') {
         if (related.throughField) {
           promises.push(this._disconnectThrough(connection, related, id, args));
           continue;
