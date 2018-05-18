@@ -21,7 +21,7 @@ export type TransactionCallback = (
 
 export interface Dialect {
   dialect: string;
-  escape: (unsafe: string) => string;
+  escape: (unsafe: any) => string;
   escapeId: (unsafe: string) => string;
 }
 

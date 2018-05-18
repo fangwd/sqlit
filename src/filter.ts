@@ -1,4 +1,4 @@
-import { Filter, OrderBy, isValue, _toSnake } from './database';
+import { Filter, OrderBy, isValue, toRow } from './database';
 
 import {
   Model,
@@ -11,19 +11,19 @@ import {
 import { Dialect, Value } from './engine';
 import { toArray } from './misc';
 
-interface AliasEntry {
+export interface AliasEntry {
   name: string;
   model: Model;
 }
 
-interface SelectQuery {
+export interface SelectQuery {
   fields: string;
   tables: string;
   where?: string;
   orderBy?: string;
 }
 
-class Context {
+export class Context {
   private counter: number;
 
   aliasMap: { [key: string]: AliasEntry } = {};
@@ -402,7 +402,7 @@ export class QueryBuilder {
         return value + '';
       }
     }
-    return this.dialect.escape(_toSnake(value, field) + '');
+    return this.dialect.escape(toRow(value, field) + '');
   }
 
   private escapeId(name: string | SimpleField | Model): string {

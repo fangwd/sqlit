@@ -1,23 +1,10 @@
 {
-  "name": "datalink",
+  "name": "sqlit",
   "version": "1.0.1",
-  "description": "Datalink - A library that makes database access easy and fun",
+  "description": "Sqlit - A library that makes database access easy and fun",
   "main": "./dist/index.js",
-  "files": [
-    "dist/database.js",
-    "dist/engine",
-    "dist/filter.js",
-    "dist/index.js",
-    "dist/misc.js",
-    "dist/model.js",
-    "dist/flush.js",
-    "dist/tree.js",
-    "bin/datalink.js",
-    "src",
-    "LICENSE",
-    "package.json",
-    "README.md"
-  ],
+  "files": ["dist", "LICENSE", "package.json", "README.md"],
+  "types": "./dist/index.d.ts",
   "author": "Weidong Fang",
   "license": "MIT",
   "dependencies": {},
@@ -29,32 +16,23 @@
     "@types/node": "^9.4.7",
     "@types/jest": "^22.2.0",
     "@types/mysql": "^2.15.4",
-    "jest": "^22.4.1",
-    "ts-jest": "^22.4.1",
     "typescript": "*",
-    "mysql": "^2.15.0"
+    "jest": "^22.4.1",
+    "mysql": "^2.15.0",
+    "ts-jest": "^22.4.1"
   },
   "scripts": {
     "test": "jest",
-    "build": "tsc"
+    "build": "tsc -D"
   },
   "jest": {
     "transform": {
       "^.+\\.tsx?$": "ts-jest"
     },
     "testRegex": "/test/.+\\.test.ts",
-    "moduleFileExtensions": [
-      "ts",
-      "tsx",
-      "js",
-      "jsx",
-      "json",
-      "node"
-    ],
+    "moduleFileExtensions": ["ts", "tsx", "js", "jsx", "json", "node"],
     "collectCoverage": false,
-    "collectCoverageFrom": [
-      "src/**/*.ts"
-    ],
+    "collectCoverageFrom": ["src/**/*.ts"],
     "verbose": true
   }
 }

@@ -38,7 +38,7 @@ import {
 
 import { createNode, moveSubtree, deleteSubtree, treeQuery } from './tree';
 
-class ClosureTable {
+export class ClosureTable {
   constructor(
     public table: Table,
     public ancestor: ForeignKeyField,
@@ -465,7 +465,7 @@ export class Table {
     if (typeof field === 'string') {
       field = this.model.field(field) as SimpleField;
     }
-    return this.db.pool.escape(_toSnake(value, field) + '');
+    return this.db.pool.escape(toRow(value, field) + '');
   }
 
   _get(connection: Connection, key: Value | Filter): Promise<Document> {
@@ -1004,7 +1004,7 @@ function _toCamel(value: Value, field: SimpleField): Value {
   return value;
 }
 
-export function _toSnake(value: Value, field: SimpleField): Value {
+export function toRow(value: Value, field: SimpleField): Value {
   if (value && /date|time/i.test(field.column.type)) {
     return new Date(value as any)
       .toISOString()
@@ -1046,7 +1046,7 @@ function isEmpty(value: Value | Record | any) {
   return false;
 }
 
-type FieldValue = Value | Record;
+export type FieldValue = Value | Record;
 
 export class Record {
   __table: Table;
@@ -1178,7 +1178,7 @@ export class Record {
       const lhs = model.valueOf(fields, name);
       const rhs = model.valueOf(row, name);
       const field = model.field(name) as SimpleField;
-      if (_toSnake(lhs, field) != _toSnake(rhs, field)) {
+      if (toRow(lhs, field) != toRow(rhs, field)) {
         return false;
       }
     }

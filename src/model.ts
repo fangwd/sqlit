@@ -34,7 +34,7 @@ export interface SchemaConfig {
   models: ModelConfig[];
 }
 
-interface ClosureTableConfig {
+export interface ClosureTableConfig {
   name: string;
   fields?: {
     ancestor?: string;
@@ -43,7 +43,7 @@ interface ClosureTableConfig {
   };
 }
 
-interface ModelConfig {
+export interface ModelConfig {
   name?: string;
   table?: string;
   fields?: FieldConfig[];
@@ -51,7 +51,7 @@ interface ModelConfig {
   closureTable?: ClosureTableConfig;
 }
 
-interface FieldConfig {
+export interface FieldConfig {
   name?: string;
   column?: string;
   relatedName?: string;
