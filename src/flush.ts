@@ -176,16 +176,17 @@ function _persist(connection: Connection, record: Record): Promise<Record> {
           if (!isIntegrityError(error)) return reject(error);
           record.__table._get(connection, filter).then(row => {
             if (row) {
+              if (record.__primaryKey() === undefined) {
+                const value = row[model.primaryKey.fields[0].name];
+                record.__setPrimaryKey(value as Value);
+              }
               record.__remove_dirty(Object.keys(filter));
-              if (!record.__dirty()) {
+              Object.keys(filter).forEach(key => delete fields[key]);
+              if (Object.keys(fields).length === 0 || !record.__dirty()) {
                 resolve(record);
               } else {
                 record.__table._update(connection, fields, filter).then(() => {
                   record.__remove_dirty(Object.keys(fields));
-                  if (record.__primaryKey() === undefined) {
-                    const value = row[model.primaryKey.fields[0].name];
-                    record.__setPrimaryKey(value as Value);
-                  }
                   resolve(record);
                 });
               }

@@ -1,4 +1,4 @@
-import { Filter, OrderBy, isValue, toRow } from './database';
+import { Filter, OrderBy, isValue, toRow, Record } from './database';
 
 import {
   Model,
@@ -89,6 +89,7 @@ export class QueryBuilder {
 
   where(args: Filter): string {
     if (!args) return '';
+    args = plainify(args);
     if (Array.isArray(args)) {
       return this.or(args);
     } else {
@@ -455,4 +456,22 @@ export function splitKey(arg: string): string[] {
     return [match[1], op];
   }
   return [arg];
+}
+
+function plainify(value) {
+  if (Array.isArray(value)) {
+    return value.map(entry => plainify(entry));
+  } else if (isValue(value)) {
+    return value;
+  } else if (value instanceof Record) {
+    return {
+      [value.__table.model.keyField().name]: value.__primaryKey()
+    };
+  } else {
+    const result = {};
+    for (const key in value) {
+      result[key] = plainify(value[key]);
+    }
+    return result;
+  }
 }

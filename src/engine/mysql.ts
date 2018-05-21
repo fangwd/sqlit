@@ -64,7 +64,7 @@ class _Connection extends Connection {
 
   query(sql: string): Promise<any[] | void> {
     this.queryCounter.total++;
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve, reject) =>
       this.connection.query(sql, (error, results, fields) => {
         if (error) {
           return reject(error);
@@ -76,8 +76,8 @@ class _Connection extends Connection {
         } else {
           resolve(results.affectedRows);
         }
-      });
-    });
+      })
+    );
   }
 
   transaction(callback: TransactionCallback): Promise<any> {

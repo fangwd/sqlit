@@ -1,5 +1,5 @@
 import { pluralise, toPascalCase, toCamelCase } from './misc';
-import { Document, isValue } from './database';
+import { Document, Record, isValue, isEmpty } from './database';
 import { Value } from './engine';
 
 export interface SchemaInfo {
@@ -188,9 +188,7 @@ export class Model {
   checkUniqueKey(row, reject?): UniqueKey {
     if (!row) return null;
 
-    if (!reject) {
-      reject = value => value === undefined;
-    }
+    reject = reject || isEmpty;
 
     let uniqueKey = this.primaryKey;
     for (const field of uniqueKey.fields) {
@@ -238,7 +236,12 @@ export class Model {
     if (uniqueKey) {
       const fields = {};
       for (const field of uniqueKey.fields) {
-        fields[field.name] = row[field.name];
+        const value = row[field.name];
+        if (value instanceof Record) {
+          fields[field.name] = value.__primaryKey();
+        } else {
+          fields[field.name] = row[field.name];
+        }
       }
       return fields;
     }

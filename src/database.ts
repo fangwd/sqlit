@@ -375,7 +375,6 @@ export class Table {
     if (options.offset !== undefined) {
       sql += ` offset ${parseInt(options.offset + '')}`;
     }
-
     return connection.query(sql).then(rows => {
       return filterThunk ? rows : rows.map(row => toDocument(row, this.model));
     });
@@ -418,6 +417,7 @@ export class Table {
 
   _insert(connection: Connection, data: Row): Promise<any> {
     const keys = Object.keys(data);
+    if (keys.length === 0) throw Error(`${this.model.name}: No data`);
     const name = keys.map(key => this.escapeName(key)).join(', ');
     const value = keys.map(key => this.escapeValue(key, data[key])).join(', ');
     const sql = `insert into ${this._name()} (${name}) values (${value})`;
@@ -1031,7 +1031,7 @@ export function toDocument(row: Row, model: Model): Document {
   return result;
 }
 
-function isEmpty(value: Value | Record | any) {
+export function isEmpty(value: Value | Record | any) {
   if (value === undefined) {
     return true;
   }
@@ -1114,7 +1114,9 @@ export class Record {
       }
     });
 
-    return perfect ? flushable === this.__state.dirty.size : flushable > 0;
+    if (flushable === 0) return false;
+
+    return perfect ? flushable === this.__state.dirty.size : true;
   }
 
   __fields(): Row {
