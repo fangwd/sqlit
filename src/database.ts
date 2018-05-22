@@ -637,7 +637,7 @@ export class Table {
     connection: Connection,
     data: Document,
     id: Value
-  ): Promise<void> {
+  ): Promise<any> {
     const promises = [];
     for (const key in data) {
       let field = this.model.field(key);
@@ -647,7 +647,7 @@ export class Table {
         );
       }
     }
-    return Promise.all(promises).then(() => Promise.resolve());
+    return Promise.all(promises);
   }
 
   private _updateChildField(
@@ -655,7 +655,7 @@ export class Table {
     related: RelatedField,
     id: Value,
     data: Document
-  ): Promise<void> {
+  ): Promise<any> {
     const promises = [];
     const field = related.referencingField;
     if (!field) throw Error(`Bad field ${related.displayName()}`);
@@ -766,38 +766,33 @@ export class Table {
         const where = args.map(arg => ({ [field.name]: id, ...arg }));
         promises.push(table._update(connection, { [field.name]: null }, where));
       } else if (method === 'set') {
-        const promise = related.throughField
+        let promise = related.throughField
           ? this._deleteThrough(connection, related, id, [])
           : table._delete(connection, { [field.name]: id });
-        promises.push(
-          promise.then(() => {
-            if (related.throughField) {
-              return this._createThrough(connection, related, id, args);
-            }
-            // create: [{parent: {id: 2}, name: 'Apple'}, ...]
-            const docs = toArray(args).map(arg => ({
-              [field.name]: id,
-              ...arg
-            }));
-            if (field.isUnique()) {
-              return this._disconnectUnique(connection, field, id).then(() =>
-                table._create(connection, docs[0])
-              );
-            } else {
-              return Promise.all(
-                docs.map(doc => {
-                  table._create(connection, doc);
-                })
-              );
-            }
-          })
-        );
+        promise = promise.then(() => {
+          if (related.throughField) {
+            return this._createThrough(connection, related, id, args);
+          }
+          // create: [{parent: {id: 2}, name: 'Apple'}, ...]
+          const docs = toArray(args).map(arg => ({
+            [field.name]: id,
+            ...arg
+          }));
+          if (field.isUnique()) {
+            return this._disconnectUnique(connection, field, id).then(() =>
+              table._create(connection, docs[0])
+            );
+          } else {
+            return Promise.all(docs.map(doc => table._create(connection, doc)));
+          }
+        });
+        promises.push(promise);
       } else {
         throw Error(`Unknown method: ${method}`);
       }
     }
 
-    return Promise.all(promises).then(() => Promise.resolve());
+    return Promise.all(promises);
   }
 
   _disconnectUnique(
@@ -820,11 +815,14 @@ export class Table {
     const table = this.db.table(related.throughField.referencedField.model);
     const mapping = this.db.table(related.throughField.model);
     const promises = args.map(arg =>
-      table._get(connection, arg).then(row =>
-        mapping._create(connection, {
-          [related.referencingField.name]: value,
-          [related.throughField.name]: row[table.model.keyField().name]
-        })
+      table._get(connection, arg).then(
+        row =>
+          row
+            ? mapping._create(connection, {
+                [related.referencingField.name]: value,
+                [related.throughField.name]: row[table.model.keyField().name]
+              })
+            : Promise.resolve(null)
       )
     );
     return Promise.all(promises);
