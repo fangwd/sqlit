@@ -3,7 +3,8 @@ create table user (
   email varchar(200) unique,
   first_name varchar(30),
   last_name varchar(100),
-  status int
+  status int,
+  first_post_id int
 );
 
 create table `group` (
@@ -118,3 +119,14 @@ create table `store_product` (
   foreign key (store_id) references store(id),
   foreign key (product_id) references product(id)
 );
+
+create table post(
+  id int key auto_increment,
+  title varchar(100),
+  user_id int,
+  unique (user_id, title),
+  foreign key (user_id) references user(id)
+);
+
+alter table user add foreign key (first_post_id) references post(id);
+
