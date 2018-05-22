@@ -63,6 +63,7 @@ class _Connection extends Connection {
   }
 
   query(sql: string): Promise<any[] | void> {
+    console.log('--', sql);
     this.queryCounter.total++;
     return new Promise((resolve, reject) =>
       this.connection.query(sql, (error, results, fields) => {

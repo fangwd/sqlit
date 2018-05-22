@@ -553,7 +553,7 @@ export class Table {
     return Promise.all(promises).then(() => result);
   }
 
-  private _create(connection: Connection, data: Document): Promise<Document> {
+  _create(connection: Connection, data: Document): Promise<Document> {
     if (Object.keys(data).length === 0) throw Error('Empty data');
 
     return this._resolveParentFields(connection, data).then(row =>
