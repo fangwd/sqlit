@@ -1,4 +1,5 @@
-import { Filter, OrderBy, isValue, toRow, Record } from './database';
+import { Filter, OrderBy, isValue, toRow } from './database';
+import { Record } from './record';
 
 import {
   Model,

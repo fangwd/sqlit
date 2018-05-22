@@ -1,5 +1,6 @@
 import { Schema } from '../src/model';
-import { Database, Table, Record } from '../src/database';
+import { Database, Table } from '../src/database';
+import { Record } from '../src/record';
 
 import helper = require('./helper');
 import { FlushMethod } from '../src/flush';

@@ -1,4 +1,5 @@
-import { Database, Table, Record, Document, toDocument } from './database';
+import { Database, Table, Document, toDocument } from './database';
+import { Record } from './record';
 
 import { Connection, Row, Value } from './engine';
 import { encodeFilter } from './filter';

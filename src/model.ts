@@ -1,5 +1,6 @@
 import { pluralise, toPascalCase, toCamelCase } from './misc';
-import { Document, Record, isValue, isEmpty } from './database';
+import { Document, isValue, isEmpty } from './database';
+import { Record } from './record';
 import { Value } from './engine';
 
 export interface SchemaInfo {
