@@ -12,7 +12,7 @@ test('example', async done => {
 
   await db.buildSchema();
 
-  const { User, Post } = db.models();
+  const { User, Post } = db.getModels();
 
   const user = new User({ email: 'user@example.com' });
 
@@ -21,6 +21,7 @@ test('example', async done => {
   user.firstPost = post;
 
   await user.save();
+
   const posts = await db.table('post').select('*', { where: { user } });
 
   expect(posts.length).toBe(1);

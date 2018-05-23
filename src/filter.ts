@@ -100,7 +100,11 @@ export class QueryBuilder {
 
   private or(args: Filter[]): string {
     const exprs = args.map(arg => this.and(arg));
-    return exprs.length === 0 ? '' : `(${exprs.join(' or ')})`;
+    return exprs.length === 0
+      ? ''
+      : exprs.length === 1
+        ? exprs[0]
+        : exprs.map(x => `(${x})`).join(' or ');
   }
 
   private and(args: Filter): string {
@@ -129,7 +133,7 @@ export class QueryBuilder {
             expr += this._join(field, filter);
           }
           if (expr.length > 0) {
-            exprs.push(`(${expr})`);
+            exprs.push(`${expr}`);
           }
         } else {
           const keys = Object.keys(query);
@@ -145,7 +149,7 @@ export class QueryBuilder {
           }
           const expr = this._join(field, query);
           if (expr.length > 0) {
-            exprs.push(`(${expr})`);
+            exprs.push(`${expr}`);
           }
         }
       } else if (field instanceof SimpleField) {
@@ -182,7 +186,11 @@ export class QueryBuilder {
         throw Error(`Bad field: ${this.model.name}.${name}`);
       }
     }
-    return exprs.length === 0 ? '' : `(${exprs.join(' and ')})`;
+    return exprs.length === 0
+      ? ''
+      : exprs.length === 1
+        ? exprs[0]
+        : exprs.map(x => `(${x})`).join(' and ');
   }
 
   private expr(field: SimpleField, operator: string, value: Value | Value[]) {

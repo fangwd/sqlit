@@ -26,7 +26,7 @@ test('append', () => {
 test('append #2', () => {
   const schema = new Schema(helper.getExampleData());
   const db = new Database(null, schema);
-  const user = db.User({ email: 'user@example.com' });
+  const user = db.getModels().User({ email: 'user@example.com' });
   expect(user instanceof Record).toBe(true);
   expect(user.email).toBe('user@example.com');
   expect(user.get('email')).toBe('user@example.com');
@@ -41,7 +41,7 @@ test('delete', async done => {
   const id = await table.insert({ email: 'deleted@example.com' });
   const row = await table.get({ id });
   expect(row.email).toBe('deleted@example.com');
-  const record = db.User({ email: 'deleted@example.com' });
+  const record = db.getModels().User({ email: 'deleted@example.com' });
   const deleted = record.delete();
   record.delete().then(async () => {
     expect(await table.get({ id })).toBe(undefined);
@@ -56,7 +56,7 @@ test('update', async done => {
   const id = await table.insert({ email: 'updated@example.com', status: 100 });
   const row = await table.get({ id });
   expect(row.status).toBe(100);
-  const user = db.User({ email: 'updated@example.com' });
+  const user = db.getModels().User({ email: 'updated@example.com' });
   await user.update({ status: 200 });
   expect((await table.get({ id })).status).toBe(200);
   done();
@@ -65,7 +65,7 @@ test('update', async done => {
 test('save #1', async done => {
   const schema = new Schema(helper.getExampleData());
   const db = helper.connectToDatabase(NAME, schema);
-  const user = db.User({ email: 'saved01@example.com' });
+  const user = db.getModels().User({ email: 'saved01@example.com' });
   user.save().then(async row => {
     expect(row.email).toBe('saved01@example.com');
     const user = await db.table('user').get({ email: 'saved01@example.com' });
@@ -77,8 +77,9 @@ test('save #1', async done => {
 test('save #2', async done => {
   const schema = new Schema(helper.getExampleData());
   const db = helper.connectToDatabase(NAME, schema);
-  const user = db.User({ email: 'saved02@example.com' });
-  const order = db.Order({ code: 'saved02' });
+  const models = db.getModels();
+  const user = models.User({ email: 'saved02@example.com' });
+  const order = models.Order({ code: 'saved02' });
   order.user = user;
   const saved = await user.save();
   await order.save();
@@ -90,9 +91,10 @@ test('save #2', async done => {
 test('save #3', done => {
   const schema = new Schema(helper.getExampleData());
   const db = helper.connectToDatabase(NAME, schema);
-  const user = db.User({ email: 'saved03@example.com' });
-  const order_1 = db.Order({ code: 'saved03-1', user });
-  const order_2 = db.Order({ code: 'saved03-2', user });
+  const models = db.getModels();
+  const user = models.User({ email: 'saved03@example.com' });
+  const order_1 = models.Order({ code: 'saved03-1', user });
+  const order_2 = models.Order({ code: 'saved03-2', user });
   Promise.all([order_1.save(), order_2.save()]).then(async () => {
     const saved_0 = await db
       .table('user')
@@ -108,9 +110,10 @@ test('save #3', done => {
 test('save #4', async done => {
   const schema = new Schema(helper.getExampleData());
   const db = helper.connectToDatabase(NAME, schema);
-  const user = db.User({ email: 'saved04@example.com' });
-  const order_1 = db.Order({ code: 'saved04-1', user });
-  const order_2 = db.Order({ code: 'saved04-2', user });
+  const models = db.getModels();
+  const user = models.User({ email: 'saved04@example.com' });
+  const order_1 = models.Order({ code: 'saved04-1', user });
+  const order_2 = models.Order({ code: 'saved04-2', user });
   user.status = order_2;
   await order_1.save();
   await user.save();
@@ -126,11 +129,12 @@ test('save #4', async done => {
 test('save #5', async done => {
   const schema = new Schema(helper.getExampleData());
   const db = helper.connectToDatabase(NAME, schema);
+  const User = db.getModels().User;
   const email = 'saved05@example.com';
   const promises = [];
-  promises.push(db.User({ email }).save());
-  promises.push(db.User({ email, status: 200 }).save());
-  promises.push(db.User({ email }).save());
+  promises.push(User({ email }).save());
+  promises.push(User({ email, status: 200 }).save());
+  promises.push(User({ email }).save());
   Promise.all(promises).then(async () => {
     const user = await db.table('user').get({ email });
     expect(user.email).toBe(email);

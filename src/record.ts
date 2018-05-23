@@ -1,9 +1,42 @@
 import { Table, Document, toRow, isEmpty, isValue } from './database';
-import { SimpleField, ForeignKeyField, UniqueKey } from './model';
-import { RecordProxy, FlushState, FlushMethod, flushRecord } from './flush';
+import { SimpleField, ForeignKeyField, UniqueKey, Field } from './model';
+import { FlushState, FlushMethod, flushRecord } from './flush';
 import { Row, Value } from './engine';
+import { copyRecord } from './copy';
 
 export type FieldValue = Value | Record;
+
+export const RecordProxy = {
+  set: function(record: Record, name: string, value: any) {
+    if (!/^__/.test(name)) {
+      if (value === undefined) {
+        throw Error(`Assigning undefined to ${name}`);
+      }
+      const model = record.__table.model;
+      const field = model.field(name);
+      if (!field) {
+        throw Error(`Invalid field: ${model.name}.${name}`);
+      }
+      // throw TypeError(), RangeError(), etc
+      record.__data[name] = value;
+      record.__state.dirty.add(name);
+    } else {
+      record[name] = value;
+    }
+    return true;
+  },
+
+  get: function(record: Record, name: string) {
+    if (typeof name === 'string' && !/^__/.test(name)) {
+      if (typeof record[name] !== 'function') {
+        const model = record.__table.model;
+        const field = model.field(name);
+        return record.__data[name];
+      }
+    }
+    return record[name];
+  }
+};
 
 export class Record {
   __table: Table;
@@ -42,6 +75,10 @@ export class Record {
   delete(): Promise<any> {
     const filter = this.__table.model.getUniqueFields(this.__data);
     return this.__table.delete(filter);
+  }
+
+  copy(data: Document, options?) {
+    return copyRecord(this, data, options);
   }
 
   __dirty(): boolean {
@@ -180,4 +217,63 @@ export class Record {
     }
     return result;
   }
+
+  __dump() {
+    const data = { __state: this.__state.json() };
+    for (const field of this.__table.model.fields) {
+      let name = field.name;
+      const value = this.__data[name];
+      if (value !== undefined) {
+        if (this.__state.merged) {
+          name = '!' + name;
+        } else if (this.__state.dirty.has(name)) {
+          name = '*' + name;
+        }
+        if (isValue(value)) {
+          data[name] = value;
+        } else {
+          const record = value as Record;
+          data[name] = record.__repr();
+        }
+      }
+    }
+    return data;
+  }
+
+  __repr() {
+    const model = this.__table.model;
+    const value = this.__data[model.keyField().name];
+    if (value === undefined || isValue(value)) {
+      return `${model.name}(${value})`;
+    } else {
+      const record = value as Record;
+      return `${model.name}(${record.__repr()})`;
+    }
+  }
+}
+
+class RecordSet {
+  record: Record;
+  field: Field;
+
+  constructor(record: Record, field: Field) {
+    this.record = record;
+    this.field = field;
+  }
+
+  add() {}
+
+  delete(record: Record) {}
+
+  remove(record: Record) {}
+}
+
+export function getModel(table: Table, bulk: boolean = false) {
+  const model = function(data) {
+    if (bulk) return table.append(data);
+    const record = new Proxy(new Record(table), RecordProxy);
+    Object.assign(record, data);
+    return record;
+  };
+  return model;
 }

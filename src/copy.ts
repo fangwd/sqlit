@@ -4,16 +4,16 @@ import { Record } from './record';
 import { Value } from './engine';
 
 interface CopyOptions {
-  ignore?: string[];
+  except?: string[];
 }
 
 export function copyRecord(
-  table: Table,
-  filter: Filter,
+  record: Record,
   data: Document,
   options?: CopyOptions
 ): Promise<Record> {
-  const filterMap = buildTableFilters(table, filter);
+  const table = record.__table;
+  const filterMap = buildTableFilters(record, options);
   const db = new Database(table.db.pool, table.db.schema);
   return selectRows(filterMap, db).then(() => {
     const model = table.model;
@@ -25,11 +25,19 @@ export function copyRecord(
   });
 }
 
-function buildTableFilters(table: Table, filter: Filter): Map<Table, Filter> {
-  const db = table.db;
+function buildTableFilters(record: Record, options): Map<Table, Filter> {
+  const db = record.__table.db;
   const map = new Map();
 
-  map.set(table, filter);
+  let except: Set<string>;
+
+  if (options && options.except) {
+    except = new Set(options.except);
+  } else {
+    except = new Set();
+  }
+
+  map.set(record.__table, [record.__data]);
 
   while (true) {
     let added = 0;
@@ -37,21 +45,32 @@ function buildTableFilters(table: Table, filter: Filter): Map<Table, Filter> {
     for (const table of db.tableList) {
       if (map.has(table)) continue;
 
+      if (except.has(table.model.name) || except.has(table.model.table.name)) {
+        continue;
+      }
+
       for (const key of table.model.uniqueKeys) {
         for (const field of key.fields) {
           if (field instanceof ForeignKeyField) {
             const referencedTable = db.table(field.referencedField.model);
-            if (map.has(referencedTable)) {
+            if (map.has(referencedTable) && referencedTable !== table) {
               const filter = map.get(referencedTable);
-              map.set(table, { [field.name]: filter });
-              break;
+              if (map.has(table)) {
+                const current = map.get(table);
+                if (Array.isArray(current)) {
+                  current.push({ [field.name]: filter });
+                } else {
+                  map.set(table, [current, { [field.name]: filter }]);
+                }
+              } else {
+                map.set(table, { [field.name]: filter });
+              }
             }
           }
         }
-        if (map.has(table)) {
-          added++;
-          break;
-        }
+      }
+      if (map.has(table)) {
+        added++;
       }
     }
 
@@ -81,8 +100,10 @@ function flushAll(db: Database) {
     const key = table.model.keyField();
     if (key && key.column.autoIncrement) {
       for (const record of table.recordList) {
-        record.__remove_dirty(key.name);
-        delete record.__data[key.name];
+        if (Object.keys(record.__data).length > 1) {
+          record.__remove_dirty(key.name);
+          delete record.__data[key.name];
+        }
       }
     }
   }
@@ -100,10 +121,10 @@ function append(table: Table, row: Document) {
   record.__remove_dirty(key.name);
 
   for (const field of model.fields) {
-    if (field instanceof ForeignKeyField) {
+    if (field instanceof ForeignKeyField && row[field.name]) {
       const referencedTable = db.table(field.referencedField.model);
       const key = referencedTable.model.keyField();
-      const value = referencedTable.model.keyValue(row);
+      const value = referencedTable.model.keyValue(row[field.name]);
       const referencedRecord = referencedTable.append({ [key.name]: value });
       referencedRecord.__remove_dirty(key.name);
       record[field.name] = referencedRecord;

@@ -1,7 +1,7 @@
 import { Value, ConnectionInfo, createConnectionPool } from './engine';
 
-import { RecordProxy, flushDatabase } from './flush';
-import { Record } from './record';
+import { flushDatabase } from './flush';
+import { RecordProxy, Record, getModel } from './record';
 
 import {
   Schema,
@@ -49,8 +49,6 @@ export class Database {
   tableMap: { [key: string]: Table } = {};
   tableList: Table[] = [];
 
-  private modelMap = {};
-
   constructor(connection: ConnectionPool | ConnectionInfo, schema?: Schema) {
     if (connection instanceof ConnectionPool) {
       this.pool = connection;
@@ -64,8 +62,11 @@ export class Database {
     if (schema) this.setSchema(schema);
   }
 
-  models() {
-    return this.modelMap;
+  getModels(bulk: boolean = false): { [key: string]: any } {
+    return this.tableList.reduce((map, table) => {
+      map[table.model.name] = getModel(table, bulk);
+      return map;
+    }, {});
   }
 
   buildSchema(name: string, config?: SchemaConfig): Promise<Schema> {
@@ -89,18 +90,6 @@ export class Database {
       this.tableMap[model.name] = table;
       this.tableMap[model.table.name] = table;
       this.tableList.push(table);
-      this[model.name] = data => {
-        const record = new Proxy(new Record(table), RecordProxy);
-        Object.assign(record, data);
-        return record;
-      };
-      this.modelMap[model.name] = class {
-        constructor(data) {
-          const record = new Proxy(new Record(table), RecordProxy);
-          Object.assign(record, data);
-          return record;
-        }
-      };
     }
 
     for (const model of schema.models) {

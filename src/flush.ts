@@ -27,39 +27,16 @@ export class FlushState {
     state.selected = undefined;
     return state;
   }
-}
-
-export const RecordProxy = {
-  set: function(record: Record, name: string, value: any) {
-    if (!/^__/.test(name)) {
-      if (value === undefined) {
-        throw Error(`Assigning undefined to ${name}`);
-      }
-      const model = record.__table.model;
-      const field = model.field(name);
-      if (!field) {
-        throw Error(`Invalid field: ${model.name}.${name}`);
-      }
-      // throw TypeError(), RangeError(), etc
-      record.__data[name] = value;
-      record.__state.dirty.add(name);
-    } else {
-      record[name] = value;
-    }
-    return true;
-  },
-
-  get: function(record: Record, name: string) {
-    if (typeof name === 'string' && !/^__/.test(name)) {
-      if (typeof record[name] !== 'function') {
-        const model = record.__table.model;
-        const field = model.field(name);
-        return record.__data[name];
-      }
-    }
-    return record[name];
+  json() {
+    return {
+      method: FlushMethod[this.method],
+      dirty: [...this.dirty],
+      deleted: this.deleted,
+      merged: this.merged,
+      selected: this.selected
+    };
   }
-};
+}
 
 class FlushContext {
   connection: Connection;
@@ -416,6 +393,7 @@ export function flushDatabaseB(connection: Connection, db: Database) {
           const count = results.reduce((a, b) => a + b, 0);
           if (count === 0 && db.getDirtyCount() > 0) {
             if (waiting++) {
+              dumpDirtyRecords(db);
               throw Error('Circular references');
             }
           } else {
@@ -462,4 +440,21 @@ export function flushDatabase(connection: Connection, db: Database) {
 
 function isIntegrityError(error) {
   return /\bDuplicate\b/i.test(error.message);
+}
+
+function dumpDirtyRecords(db: Database, all: boolean = false) {
+  const tables = {};
+  for (const table of db.tableList) {
+    const records = [];
+    for (const record of table.recordList) {
+      if (record.__dirty() || all) {
+        records.push(record.__dump());
+      }
+    }
+    if (records.length > 0) {
+      tables[table.model.name] = records;
+    }
+  }
+  console.log(tables);
+  console.log(JSON.stringify(tables, null, 4));
 }
