@@ -1,6 +1,6 @@
 {
   "name": "sqlit",
-  "version": "1.0.2",
+  "version": "1.1.1",
   "description": "Sqlit - A library that makes database access easy and fun",
   "main": "./dist/index.js",
   "files": ["dist", "LICENSE", "package.json", "README.md"],
@@ -10,7 +10,7 @@
   "dependencies": {},
   "repository": {
     "type": "git",
-    "url": "http://github.com/fangwd/datalink.git"
+    "url": "http://github.com/fangwd/sqlit.git"
   },
   "devDependencies": {
     "@types/node": "^9.4.7",
