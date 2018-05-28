@@ -28,7 +28,7 @@ export type Document = {
 
 export type Filter = Document | Document[];
 
-import { encodeFilter, QueryBuilder } from './filter';
+import { encodeFilter, QueryBuilder, AND } from './filter';
 import { toArray } from './misc';
 
 import { createNode, moveSubtree, deleteSubtree, treeQuery } from './tree';
@@ -232,14 +232,54 @@ export class Table {
   }
 
   select(
-    fields: string,
+    fields: string | Document,
     options: SelectOptions = {},
     filterThunk?: (builder: QueryBuilder) => string
   ): Promise<Row[]> {
     return this.db.pool.getConnection().then(connection =>
       this._select(connection, fields, options, filterThunk).then(result => {
-        connection.release();
-        return result;
+        if (typeof fields === 'string' || fields instanceof SimpleField) {
+          connection.release();
+          return result;
+        } else {
+          const pk = this.model.keyField().name;
+          const values = result.map(row => this.model.valueOf(row, pk));
+          const promises = [];
+          for (const name in fields) {
+            const field = this.model.field(name);
+            const value = fields[name];
+            if (field instanceof RelatedField && value) {
+              let options, fields;
+              if (typeof value !== 'object') {
+                options = {};
+              } else {
+                options = Object.assign({}, value);
+                if (options.fields) {
+                  fields = options.fields;
+                  delete options.fields;
+                } else {
+                  fields = '*';
+                }
+              }
+              const promise = this._selectRelated(
+                field,
+                values,
+                fields,
+                options
+              ).then(rows => {
+                result.forEach((entry, index) => {
+                  entry[name] = rows[index];
+                });
+              });
+
+              promises.push(promise);
+            }
+          }
+          return Promise.all(promises).then(() => {
+            connection.release();
+            return result;
+          });
+        }
       })
     );
   }
@@ -354,11 +394,13 @@ export class Table {
 
   private _select(
     connection: Connection,
-    fields: string,
+    fields: string | Document,
     options: SelectOptions = {},
     filterThunk?: (builder: QueryBuilder) => string
   ): Promise<Row[]> {
-    let sql = new QueryBuilder(this.model, this.db.pool).select(
+    const builder = new QueryBuilder(this.model, this.db.pool);
+
+    let sql = builder.select(
       fields,
       options.where,
       options.orderBy,
@@ -373,7 +415,9 @@ export class Table {
       sql += ` offset ${parseInt(options.offset + '')}`;
     }
     return connection.query(sql).then(rows => {
-      return filterThunk ? rows : rows.map(row => toDocument(row, this.model));
+      return filterThunk
+        ? rows
+        : rows.map(row => toDocument(row, this.model, builder.fieldMap));
     });
   }
 
@@ -990,6 +1034,101 @@ export class Table {
       return map;
     }, {});
   }
+
+  _selectRelated(
+    field: RelatedField,
+    values: Value[],
+    fields,
+    selectOptions: SelectOptions
+  ) {
+    const table = this.db.table(field.referencingField.model);
+    const name = field.referencingField.name;
+
+    if (selectOptions.limit) {
+      const promises = [];
+      if (field.throughField) {
+        for (const value of values) {
+          const options = Object.assign({}, selectOptions);
+          options.where = {
+            [field.throughField.name]: options.where,
+            [field.referencingField.name]: value
+          };
+          promises.push(
+            table
+              .select({ [field.throughField.name]: fields }, options)
+              .then(rows => rows.map(row => row[field.throughField.name]))
+          );
+        }
+      } else {
+        for (const value of values) {
+          const options = Object.assign({}, selectOptions);
+          options.where = Object.assign({}, options.where, { [name]: value });
+          promises.push(
+            table.select(fields, options).then(rows => {
+              if (field.referencingField.isUnique()) {
+                const row = rows[0];
+                if (row) {
+                  delete row[name];
+                }
+                return row;
+              } else {
+                return rows.map(row => {
+                  delete row[name];
+                  return row;
+                });
+              }
+            })
+          );
+        }
+      }
+      return Promise.all(promises);
+    }
+
+    const options = Object.assign({ where: {} }, selectOptions);
+
+    if (field.throughField) {
+      options.where = { [field.throughField.name]: options.where };
+      options.where[field.referencingField.name] = values;
+      return table
+        .select({ [field.throughField.name]: fields }, options)
+        .then(rows => {
+          const id = field.referencingField.model.keyField().name;
+          if (field.referencingField.isUnique()) {
+            return values.map(key => {
+              const row = rows.find(row => row[name][id] === key);
+              return row ? row[field.throughField.name] : undefined;
+            });
+          } else {
+            return values
+              .map(key => rows.filter(row => row[name][id] === key))
+              .map(docs => docs.map(doc => doc[field.throughField.name]));
+          }
+        });
+    } else {
+      options.where[name] = values;
+      return table.select(fields, options).then(rows => {
+        const id = field.referencingField.model.keyField().name;
+        if (field.referencingField.isUnique()) {
+          return values.map(key => {
+            const row = rows.find(row => row[name][id] === key);
+            if (row) {
+              delete row[name];
+            }
+            return row;
+          });
+        } else {
+          return values
+            .map(key => rows.filter(row => row[name][id] === key))
+            .map(docs => {
+              for (const doc of docs) {
+                delete doc[name];
+              }
+              return docs;
+            });
+        }
+      });
+    }
+  }
 }
 
 function _toCamel(value: Value, field: SimpleField): Value {
@@ -1009,20 +1148,50 @@ export function toRow(value: Value, field: SimpleField): Value {
   return value;
 }
 
-export function toDocument(row: Row, model: Model): Document {
+export function toDocument(row: Row, model: Model, fieldMap = {}): Document {
   const result = {};
-  for (const field of model.fields) {
-    if (field instanceof SimpleField && row[field.column.name] !== undefined) {
-      const value = _toCamel(row[field.column.name], field);
-      if (field instanceof ForeignKeyField && value !== null) {
-        result[field.name] = {
-          [field.referencedField.model.keyField().name]: value
-        };
+
+  for (const key in row) {
+    const fieldNames = key.split('__');
+
+    let currentResult = result;
+    let currentModel = model;
+
+    for (let i = 0; i < fieldNames.length - 1; i++) {
+      const fieldName = fieldNames[i];
+      if (!currentResult[fieldName]) {
+        currentResult[fieldName] = {};
+      }
+      const field = currentModel.field(fieldName);
+      if (!(field instanceof ForeignKeyField)) {
+        throw Error(`Not a foreign key: ${key}`);
+      }
+      currentResult = currentResult[fieldName];
+      currentModel = field.referencedField.model;
+    }
+
+    const field = currentModel.field(fieldNames[fieldNames.length - 1]);
+
+    const fieldName = fieldMap[key] || field.name;
+
+    if (field instanceof SimpleField) {
+      const value = _toCamel(row[key], field);
+      if (field instanceof ForeignKeyField) {
+        if (value !== null) {
+          if (!(field.name in currentResult)) {
+            currentResult[fieldName] = {};
+          }
+          const name = field.referencedField.model.keyField().name;
+          currentResult[fieldName][name] = value;
+        } else {
+          currentResult[fieldName] = null;
+        }
       } else {
-        result[field.name] = value;
+        currentResult[fieldName] = value;
       }
     }
   }
+
   return result;
 }
 

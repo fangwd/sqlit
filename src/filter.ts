@@ -1,4 +1,4 @@
-import { Filter, OrderBy, isValue, toRow } from './database';
+import { Filter, OrderBy, isValue, toRow, Document } from './database';
 import { Record } from './record';
 
 import {
@@ -59,6 +59,8 @@ export class QueryBuilder {
   alias?: string;
 
   froms?: string[];
+
+  fieldMap = {};
 
   getFroms() {
     let builder: QueryBuilder = this;
@@ -245,51 +247,69 @@ export class QueryBuilder {
     return filter;
   }
 
+  _pushField(fields: string[], path: string) {
+    const aliasMap = this.context.aliasMap;
+    let alias: string, field: Field;
+
+    const match = /^(.+)\.([^\.]+)/.exec(path);
+
+    if (match) {
+      const entry = aliasMap[match[1]];
+      alias = entry.name;
+      field = entry.model.field(match[2]);
+    } else {
+      alias = this.alias || this.model.table.name;
+      field = this.model.field(path);
+    }
+
+    if (field instanceof SimpleField) {
+      const column = `${this.escapeId(alias)}.${this.escapeId(field)}`;
+      if (match) {
+        const name = this.escapeId(path.replace(/\./g, '__'));
+        fields.push(`${column} as ${name}`);
+      } else {
+        fields.push(`${column}`);
+      }
+      return column;
+    }
+
+    throw new Error(`Invalid field: ${path}`);
+  }
+
   _select(
-    name: string | SimpleField,
-    filter?: Filter,
+    name: string | SimpleField | Document,
+    filter: Filter = {},
     orderBy?: OrderBy
   ): SelectQuery {
     this.froms = [`${this.escapeId(this.model)} ${this.alias || ''}`];
 
+    if (!(name instanceof Field || typeof name === 'string')) {
+      // { code: 'ID', user: { firstName: 'name' } }
+      extendFilter(this.model, filter, name as Document);
+    }
+
     if (orderBy) {
-      filter = this._extendFilter(filter || {}, orderBy);
+      // orderBy: ['user.email desc']
+      filter = this._extendFilter(filter, orderBy);
     }
 
     const where = this.where(filter).trim();
-    const fields = [this.encodeField(name)];
+
+    let fields = [];
+    if (name instanceof Field || typeof name === 'string') {
+      fields.push(this.encodeField(name));
+    } else {
+      const names = getFields(this.model, name, this.fieldMap);
+      for (const key of names) {
+        this._pushField(fields, key);
+      }
+    }
 
     if (orderBy) {
-      const aliasMap = this.context.aliasMap;
       orderBy = toArray(orderBy).map(order => {
-        let [path, direction] = order.split(' ');
-        let alias: string, field: Field;
-
-        const match = /^(.+)\.([^\.]+)/.exec(path);
-
-        if (match) {
-          const entry = aliasMap[match[1]];
-          alias = entry.name;
-          field = entry.model.field(match[2]);
-        } else {
-          alias = this.alias || this.model.table.name;
-          field = this.model.field(path);
-        }
-
-        direction = /^desc$/i.test(direction || '') ? 'DESC' : 'ASC';
-
-        if (field instanceof SimpleField) {
-          const column = `${this.escapeId(alias)}.${this.escapeId(field)}`;
-          if (alias !== this.model.table.name || name !== '*') {
-            if (name !== 'count(*)') {
-              const name = this.escapeId(path.replace(/\./g, '__'));
-              fields.push(`${column} as ${name}`);
-            }
-          }
-          return `${column} ${direction}`;
-        }
-
-        throw new Error(`Invalid sort column: ${path}`);
+        const [path, direction] = order.split(' ');
+        const column = this._pushField(fields, path);
+        return `${column} ${/^desc$/i.test(direction || '') ? 'DESC' : 'ASC'}`;
       });
     }
 
@@ -302,7 +322,7 @@ export class QueryBuilder {
   }
 
   select(
-    name: string | SimpleField,
+    name: string | SimpleField | Document,
     filter?: Filter,
     orderBy?: OrderBy,
     filterThunk?: (QueryBuilder) => string
@@ -473,9 +493,12 @@ function plainify(value) {
   } else if (isValue(value)) {
     return value;
   } else if (value instanceof Record) {
-    return {
-      [value.__table.model.keyField().name]: value.__primaryKey()
-    };
+    const model = value.__table.model;
+    if (value.__primaryKey()) {
+      return { [model.keyField().name]: value.__primaryKey() };
+    } else {
+      return model.getUniqueFields(value.__data);
+    }
   } else {
     const result = {};
     for (const key in value) {
@@ -483,4 +506,69 @@ function plainify(value) {
     }
     return result;
   }
+}
+
+// Extends the filter to include foreign key fields
+function extendFilter(model: Model, filter: Filter, fields: Document) {
+  for (const name in fields) {
+    const value = fields[name];
+    if (value && typeof value === 'object') {
+      const field = model.field(name);
+      if (field instanceof ForeignKeyField) {
+        if (!filter[name]) {
+          filter[name] = {};
+        }
+        extendFilter(
+          field.referencedField.model,
+          filter[name] as Filter,
+          value as Document
+        );
+      }
+    }
+  }
+}
+
+function getFields(
+  model: Model,
+  input: string | Document,
+  fieldMap,
+  prefix?: string
+) {
+  let result = [];
+
+  const getKey = (name: string) => (prefix ? `${prefix}.${name}` : name);
+
+  // By default, all fields in a model are included in the query result
+  for (const field of model.fields) {
+    if (field instanceof SimpleField) {
+      result.push(getKey(field.name));
+    }
+  }
+
+  if (typeof input === 'string') {
+    if (input === '*') return result;
+  }
+
+  for (const name in input as Document) {
+    const key = getKey(name);
+    const value = input[name];
+
+    if (!value) {
+      const index = result.indexOf(key);
+      if (index > -1) {
+        result.splice(index, 1);
+      }
+    } else {
+      const field = model.field(name);
+      if (field instanceof ForeignKeyField) {
+        const model = field.referencedField.model;
+        const fields = getFields(model, value as Document, fieldMap, key);
+        result = result.concat(result, fields);
+      } else if (typeof value === 'string') {
+        fieldMap[key.replace(/\./g, '__')] = value;
+      }
+    }
+  }
+
+  return result;
 }
