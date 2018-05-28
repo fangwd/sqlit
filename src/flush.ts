@@ -455,6 +455,5 @@ function dumpDirtyRecords(db: Database, all: boolean = false) {
       tables[table.model.name] = records;
     }
   }
-  console.log(tables);
   console.log(JSON.stringify(tables, null, 4));
 }
