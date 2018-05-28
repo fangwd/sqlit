@@ -1,6 +1,7 @@
 create table user (
   id integer primary key auto_increment,
   email varchar(200) unique,
+  password varchar(80),
   first_name varchar(30),
   last_name varchar(100),
   status int,

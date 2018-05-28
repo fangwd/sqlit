@@ -17,6 +17,12 @@
                     "nullable": true
                 },
                 {
+                    "name": "password",
+                    "type": "varchar",
+                    "size": 80,
+                    "nullable": true
+                },
+                {
                     "name": "first_name",
                     "type": "varchar",
                     "size": 30,
@@ -32,9 +38,25 @@
                     "name": "status",
                     "type": "int",
                     "nullable": true
+                },
+                {
+                    "name": "first_post_id",
+                    "type": "int",
+                    "nullable": true
                 }
             ],
             "constraints": [
+                {
+                    "columns": [
+                        "first_post_id"
+                    ],
+                    "references": {
+                        "table": "post",
+                        "columns": [
+                            "id"
+                        ]
+                    }
+                },
                 {
                     "primaryKey": true,
                     "columns": [
@@ -741,6 +763,54 @@
                     "columns": [
                         "store_id",
                         "product_id"
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "post",
+            "columns": [
+                {
+                    "name": "id",
+                    "type": "int",
+                    "nullable": false,
+                    "autoIncrement": true
+                },
+                {
+                    "name": "title",
+                    "type": "varchar",
+                    "size": 100,
+                    "nullable": true
+                },
+                {
+                    "name": "user_id",
+                    "type": "int",
+                    "nullable": true
+                }
+            ],
+            "constraints": [
+                {
+                    "columns": [
+                        "user_id"
+                    ],
+                    "references": {
+                        "table": "user",
+                        "columns": [
+                            "id"
+                        ]
+                    }
+                },
+                {
+                    "primaryKey": true,
+                    "columns": [
+                        "id"
+                    ]
+                },
+                {
+                    "unique": true,
+                    "columns": [
+                        "user_id",
+                        "title"
                     ]
                 }
             ]
