@@ -1,5 +1,11 @@
 import { Table, Document, toRow, isEmpty, isValue } from './database';
-import { SimpleField, ForeignKeyField, UniqueKey, Field } from './model';
+import {
+  SimpleField,
+  ForeignKeyField,
+  UniqueKey,
+  Field,
+  RelatedField
+} from './model';
 import { FlushState, FlushMethod, flushRecord } from './flush';
 import { Row, Value } from './engine';
 import { copyRecord } from './copy';
@@ -14,12 +20,15 @@ export const RecordProxy = {
       }
       const model = record.__table.model;
       const field = model.field(name);
-      if (!field) {
+      if (field instanceof SimpleField) {
+        // user.email = 'user@example.com'
+        record.__data[name] = value;
+        record.__state.dirty.add(name);
+      } else if (field instanceof RelatedField) {
+        throw Error(`Not assignable: ${model.name}.${name}`);
+      } else {
         throw Error(`Invalid field: ${model.name}.${name}`);
       }
-      // throw TypeError(), RangeError(), etc
-      record.__data[name] = value;
-      record.__state.dirty.add(name);
     } else {
       record[name] = value;
     }
@@ -31,7 +40,16 @@ export const RecordProxy = {
       if (typeof record[name] !== 'function') {
         const model = record.__table.model;
         const field = model.field(name);
-        return record.__data[name];
+        if (field instanceof SimpleField) {
+          return record.__data[name];
+        } else if (field instanceof RelatedField) {
+          let recordSet = record.__related[name];
+          if (!recordSet) {
+            recordSet = new RecordSet(record, field);
+            record.__related[name] = recordSet;
+          }
+          return recordSet;
+        }
       }
     }
     return record[name];
@@ -42,11 +60,15 @@ export class Record {
   __table: Table;
   __data: { [key: string]: FieldValue };
   __state: FlushState;
+  __related: { [key: string]: RecordSet };
 
   constructor(table: Table) {
     this.__table = table;
     this.__data = {};
     this.__state = new FlushState();
+    this.__related = {};
+
+    return new Proxy(this, RecordProxy);
   }
 
   get(name: string): FieldValue | undefined {
@@ -54,6 +76,9 @@ export class Record {
   }
 
   save(): Promise<any> {
+    if (!this.__dirty()) {
+      return Promise.resolve(this);
+    }
     return this.__table.db.pool.getConnection().then(connection =>
       connection.transaction(() =>
         flushRecord(connection, this).then(result => {
@@ -254,18 +279,29 @@ export class Record {
 
 class RecordSet {
   record: Record;
-  field: Field;
+  field: RelatedField;
 
-  constructor(record: Record, field: Field) {
+  constructor(record: Record, field: RelatedField) {
     this.record = record;
     this.field = field;
   }
 
-  add() {}
+  // user.groups.add(admin)
+  add(record) {
+    const data = { [this.field.name]: { upsert: { create: record.__data } } };
+    const filter = this.record.__filter();
+    return this.record.__table.modify(data, filter);
+  }
 
-  delete(record: Record) {}
+  // user.groups.replaceWith([admin, customer])
+  replaceWith() {}
 
-  remove(record: Record) {}
+  // user.groups.remove(admin)
+  remove(record: Record) {
+    const data = { [this.field.name]: { delete: [record.__filter()] } };
+    const filter = this.record.__filter();
+    return this.record.__table.modify(data, filter);
+  }
 }
 
 export function getModel(table: Table, bulk: boolean = false) {
