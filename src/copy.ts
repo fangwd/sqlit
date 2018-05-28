@@ -124,7 +124,7 @@ function append(table: Table, row: Document) {
     if (field instanceof ForeignKeyField && row[field.name]) {
       const referencedTable = db.table(field.referencedField.model);
       const key = referencedTable.model.keyField();
-      const value = referencedTable.model.keyValue(row[field.name]);
+      const value = referencedTable.model.keyValue(row[field.name] as Document);
       const referencedRecord = referencedTable.append({ [key.name]: value });
       referencedRecord.__remove_dirty(key.name);
       record[field.name] = referencedRecord;
