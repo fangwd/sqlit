@@ -14,7 +14,7 @@ const DB_TYPE = process.env.DB_TYPE || 'mysql';
 const DB_HOST = process.env.DB_HOST || 'localhost';
 const DB_USER = process.env.DB_USER || 'root';
 const DB_PASS = process.env.DB_PASS || 'secret';
-const DB_NAME = process.env.DB_NAME || 'datalink_test';
+const DB_NAME = process.env.DB_NAME || 'sqlit_test';
 
 const SCHEMA = fs.readFileSync('test/data/schema.sql').toString();
 const DATA = fs.readFileSync('test/data/data.sql').toString();
