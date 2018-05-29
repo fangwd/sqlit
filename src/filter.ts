@@ -157,7 +157,8 @@ export class QueryBuilder {
       } else if (field instanceof SimpleField) {
         exprs.push(this.expr(field, operator, value));
       } else if (field instanceof RelatedField) {
-        exprs.push(this.exists(field, operator, value as Filter));
+        const filter = value === '*' ? {} : (value as Filter);
+        exprs.push(this.exists(field, operator, filter));
       } else if (key === AND) {
         // { and: [{name_like: "%Apple%"}, {price_lt: 6}] }
         exprs.push(value.map(c => this.and(c)).join(' and '));
@@ -298,6 +299,10 @@ export class QueryBuilder {
     let fields = [];
     if (name instanceof Field || typeof name === 'string') {
       fields.push(this.encodeField(name));
+    } else if (Array.isArray(name)) {
+      name.forEach(name =>
+        fields.push(this.encodeField(this.model.field(name) as SimpleField))
+      );
     } else {
       const names = getFields(this.model, name, this.fieldMap);
       for (const key of names) {
@@ -511,7 +516,7 @@ function plainify(value) {
 // Extends the filter to include foreign key fields
 function extendFilter(model: Model, filter: Filter, fields: Document) {
   for (const name in fields) {
-    const value = fields[name];
+    const value = fields[name] === '*' ? {} : fields[name];
     if (value && typeof value === 'object') {
       const field = model.field(name);
       if (field instanceof ForeignKeyField) {
@@ -544,7 +549,6 @@ function getFields(
       result.push(getKey(field.name));
     }
   }
-
   if (typeof input === 'string') {
     if (input === '*') return result;
   }
