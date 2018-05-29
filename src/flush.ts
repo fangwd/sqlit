@@ -214,6 +214,7 @@ function _flushTable(
   mergeRecords(table);
 
   const filter = [];
+  const dirtySet = new Set();
 
   for (const record of table.recordList) {
     if (
@@ -221,16 +222,25 @@ function _flushTable(
       record.__flushable(perfect) &&
       !record.__state.selected
     ) {
-      filter.push(record.__filter());
+      const entry = record.__filter();
+      for (const name in entry) {
+        dirtySet.add(name);
+      }
+      record.__state.dirty.forEach(name => dirtySet.add(name));
+      filter.push(entry);
     }
   }
 
   const dialect = table.db.pool;
   const model = table.model;
 
+  if (model.keyField()) {
+    dirtySet.add(model.keyField().name);
+  }
+
   function _select(): Promise<any> {
     if (filter.length === 0) return Promise.resolve();
-    const fields = model.fields.filter(field => field.uniqueKey);
+    const fields = model.fields.filter(field => dirtySet.has(field.name));
     const columns = fields.map(field => (field as SimpleField).column.name);
     const expression = columns.map(dialect.escapeId).join(',');
     const from = dialect.escapeId(model.table.name);
@@ -392,7 +402,7 @@ export function flushDatabaseB(connection: Connection, db: Database) {
         .then(results => {
           const count = results.reduce((a, b) => a + b, 0);
           if (count === 0 && db.getDirtyCount() > 0) {
-            if (waiting++) {
+            if (waiting++ > db.tableList.length) {
               dumpDirtyRecords(db);
               throw Error('Circular references');
             }

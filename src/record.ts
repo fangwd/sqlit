@@ -128,7 +128,7 @@ export class Record {
     let flushable = 0;
 
     this.__state.dirty.forEach(key => {
-      if (!isEmpty(data[key])) {
+      if (!isEmpty(data[key], perfect)) {
         flushable++;
       }
     });
@@ -305,11 +305,13 @@ class RecordSet {
 }
 
 export function getModel(table: Table, bulk: boolean = false) {
-  const model = function(data) {
+  const model: any = function(data) {
     if (bulk) return table.append(data);
     const record = new Proxy(new Record(table), RecordProxy);
     Object.assign(record, data);
     return record;
   };
+  model.table = table;
+  model.fields = table.model.fields;
   return model;
 }

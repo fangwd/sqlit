@@ -426,9 +426,23 @@ export class Table {
 
   _update(
     connection: Connection,
-    data: Document,
+    fields: Document,
     filter: Filter
   ): Promise<any> {
+    const data = fields;
+
+    for (const name in filter) {
+      if (name in data) {
+        if (data[name].toString() === filter[name].toString()) {
+          delete data[name];
+        }
+      }
+    }
+
+    if (Object.keys(data).length === 0) {
+      return Promise.resolve(0);
+    }
+
     let sql = `update ${this._name()} set`;
     let cnt = 0;
 
@@ -1210,7 +1224,7 @@ export function toDocument(row: Row, model: Model, fieldMap = {}): Document {
   return result;
 }
 
-export function isEmpty(value: Value | Record | any) {
+export function isEmpty(value: Value | Record | any, perfect = false) {
   if (value === undefined) {
     return true;
   }
@@ -1218,6 +1232,9 @@ export function isEmpty(value: Value | Record | any) {
   if (value instanceof Record) {
     while (value.__state.merged) {
       value = value.__state.merged;
+    }
+    if (perfect && value.__state.dirty.size > 0) {
+      return true;
     }
     return isEmpty(value.__primaryKey());
   }
