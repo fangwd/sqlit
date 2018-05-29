@@ -374,7 +374,7 @@ function mergeRecords(table: Table) {
   }
 }
 
-function flushDatabaseA(connection: Connection, db: Database) {
+function flushDatabaseA(connection: Connection, db: Database): Promise<any> {
   return new Promise((resolve, reject) => {
     function _flush() {
       const promises = db.tableList.map(table =>
@@ -427,10 +427,7 @@ export function flushDatabase(connection: Connection, db: Database) {
     let perfect = true;
     const _flush = () => {
       connection.transaction(() => {
-        const tryPerfect: Promise<any> = perfect
-          ? flushDatabaseA(connection, db)
-          : Promise.resolve();
-        tryPerfect
+        (perfect ? flushDatabaseA(connection, db) : Promise.resolve())
           .then(() =>
             flushDatabaseB(connection, db).then(() => {
               connection.commit().then(() => {
@@ -440,7 +437,7 @@ export function flushDatabase(connection: Connection, db: Database) {
           )
           .catch(error => {
             connection.rollback().then(() => {
-              if (isIntegrityError(error)) {
+              if (perfect && isIntegrityError(error)) {
                 perfect = false;
                 setTimeout(_flush, Math.random() * 1000);
               } else {
