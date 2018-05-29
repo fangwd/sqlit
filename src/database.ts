@@ -429,11 +429,20 @@ export class Table {
     fields: Document,
     filter: Filter
   ): Promise<any> {
-    const data = fields;
+    const data = { ...fields };
 
     for (const name in filter) {
       if (name in data) {
-        if (data[name].toString() === filter[name].toString()) {
+        const lhs = data[name];
+        const rhs = filter[name];
+        if (lhs === null) {
+          if (rhs === null) {
+            delete data[name];
+          }
+          continue;
+        }
+        if (rhs === null) continue;
+        if (lhs.toString() === rhs.toString()) {
           delete data[name];
         }
       }
@@ -1169,7 +1178,7 @@ function _toCamel(value: Value, field: SimpleField): Value {
 
 export function toRow(value: Value, field: SimpleField): Value {
   if (value && /date|time/i.test(field.column.type)) {
-    return new Date(value as any)
+    return new Date(value as string)
       .toISOString()
       .slice(0, 19)
       .replace('T', ' ');
@@ -1224,7 +1233,7 @@ export function toDocument(row: Row, model: Model, fieldMap = {}): Document {
   return result;
 }
 
-export function isEmpty(value: Value | Record | any, perfect = false) {
+export function isEmpty(value: Value | Record | any) {
   if (value === undefined) {
     return true;
   }
@@ -1233,9 +1242,7 @@ export function isEmpty(value: Value | Record | any, perfect = false) {
     while (value.__state.merged) {
       value = value.__state.merged;
     }
-    if (perfect && value.__state.dirty.size > 0) {
-      return true;
-    }
+    if (value.__primaryKeyDirty()) return true;
     return isEmpty(value.__primaryKey());
   }
 

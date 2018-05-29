@@ -118,7 +118,7 @@ function _persist(connection: Connection, record: Record): Promise<Record> {
   const method = record.__state.method;
   const model = record.__table.model;
   const filter = model.getUniqueFields(record.__data);
-
+  console.log('persisting', record.__data, record.__state);
   if (method === FlushMethod.DELETE) {
     return record.__table.delete(filter).then(() => {
       record.__state.deleted = true;
@@ -129,9 +129,11 @@ function _persist(connection: Connection, record: Record): Promise<Record> {
   const fields = record.__fields();
 
   if (method === FlushMethod.UPDATE) {
+    console.log(fields, filter);
     return record.__table._update(connection, fields, filter).then(affected => {
       if (affected > 0) {
         record.__remove_dirty(Object.keys(fields));
+        console.log('after update', record.__data, record.__state);
         return record;
       }
       throw Error(`Row does not exist`);
@@ -198,9 +200,11 @@ function flushTable(
   return _flushTable(connection, table, perfect).catch(error => {
     for (let i = 0; i < table.recordList.length; i++) {
       const record = table.recordList[i];
-      const state = states[i];
-      record.__data = { ...state.data };
-      record.__state = state.state.clone();
+      if (record.__dirty()) {
+        const state = states[i];
+        record.__data = { ...state.data };
+        record.__state = state.state.clone();
+      }
     }
     throw error;
   });
@@ -217,6 +221,13 @@ function _flushTable(
   const dirtySet = new Set();
 
   for (const record of table.recordList) {
+    console.log(
+      'Looking at',
+      record.__dirty(),
+      record.__data,
+      record.__flushable(perfect),
+      record.__state.selected
+    );
     if (
       record.__dirty() &&
       record.__flushable(perfect) &&
@@ -226,6 +237,12 @@ function _flushTable(
       for (const name in entry) {
         dirtySet.add(name);
       }
+      console.log(
+        '***Will select',
+        record.__state.dirty,
+        record.__data,
+        perfect
+      );
       record.__state.dirty.forEach(name => dirtySet.add(name));
       filter.push(entry);
     }
@@ -248,6 +265,7 @@ function _flushTable(
     const query = `select ${columns.join(',')} from ${from} where ${where}`;
     return connection.query(query).then(rows => {
       rows = rows.map(row => toDocument(row, table.model));
+      console.log('*** selected', dirtySet);
       for (const record of table.recordList) {
         if (!record.__dirty()) continue;
         for (const row of rows) {
@@ -264,6 +282,7 @@ function _flushTable(
               record.__state.dirty.delete(name);
             }
           }
+          console.log('still dirty??', record.__state.dirty);
           if (record.__dirty()) {
             if (record.__state.method === FlushMethod.INSERT) {
               record.__state.method = FlushMethod.UPDATE;
@@ -374,6 +393,7 @@ function mergeRecords(table: Table) {
 }
 
 function flushDatabaseA(connection: Connection, db: Database) {
+  console.log('### doing A');
   return new Promise((resolve, reject) => {
     function _flush() {
       const promises = db.tableList.map(table =>
@@ -423,9 +443,14 @@ export function flushDatabaseB(connection: Connection, db: Database) {
 
 export function flushDatabase(connection: Connection, db: Database) {
   return new Promise((resolve, reject) => {
+    let perfect = true;
     const _flush = () => {
+      console.log('**********************');
       connection.transaction(() => {
-        flushDatabaseA(connection, db)
+        const tryPerfect: Promise<any> = perfect
+          ? flushDatabaseA(connection, db)
+          : Promise.resolve();
+        tryPerfect
           .then(() =>
             flushDatabaseB(connection, db).then(() => {
               connection.commit().then(() => {
@@ -436,6 +461,7 @@ export function flushDatabase(connection: Connection, db: Database) {
           .catch(error => {
             connection.rollback().then(() => {
               if (isIntegrityError(error)) {
+                perfect = false;
                 setTimeout(_flush, Math.random() * 1000);
               } else {
                 reject(error);
@@ -452,7 +478,7 @@ function isIntegrityError(error) {
   return /\bDuplicate\b/i.test(error.message);
 }
 
-function dumpDirtyRecords(db: Database, all: boolean = false) {
+export function dumpDirtyRecords(db: Database, all: boolean = false) {
   const tables = {};
   for (const table of db.tableList) {
     const records = [];

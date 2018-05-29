@@ -128,13 +128,13 @@ export class Record {
     let flushable = 0;
 
     this.__state.dirty.forEach(key => {
-      if (!isEmpty(data[key], perfect)) {
+      if (!isEmpty(data[key])) {
         flushable++;
       }
     });
 
     if (flushable === 0) return false;
-
+    console.log('flushable?', perfect, flushable);
     return perfect ? flushable === this.__state.dirty.size : true;
   }
 
@@ -153,6 +153,7 @@ export class Record {
       this.__state.dirty.delete(keys);
     } else {
       for (const key of keys) {
+        console.log('****', key, keys);
         this.__state.dirty.delete(key);
       }
     }
@@ -176,6 +177,11 @@ export class Record {
       return value.__primaryKey();
     }
     return value;
+  }
+
+  __primaryKeyDirty(): boolean {
+    const name = this.__table.model.primaryKey.fields[0].name;
+    return this.__state.dirty.has(name);
   }
 
   __setPrimaryKey(value: Value) {
