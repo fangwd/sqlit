@@ -134,7 +134,6 @@ export class Record {
     });
 
     if (flushable === 0) return false;
-    console.log('flushable?', perfect, flushable);
     return perfect ? flushable === this.__state.dirty.size : true;
   }
 
@@ -153,7 +152,6 @@ export class Record {
       this.__state.dirty.delete(keys);
     } else {
       for (const key of keys) {
-        console.log('****', key, keys);
         this.__state.dirty.delete(key);
       }
     }
