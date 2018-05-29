@@ -245,9 +245,11 @@ export class Table {
           const pk = this.model.keyField().name;
           const values = result.map(row => this.model.valueOf(row, pk));
           const promises = [];
+
           for (const name in fields) {
             const field = this.model.field(name);
             const value = fields[name];
+
             if (field instanceof RelatedField && value) {
               let options, fields;
               if (typeof value !== 'object') {
@@ -261,6 +263,7 @@ export class Table {
                   fields = '*';
                 }
               }
+
               const promise = this._selectRelated(
                 field,
                 values,
@@ -1053,6 +1056,12 @@ export class Table {
             [field.throughField.name]: options.where,
             [field.referencingField.name]: value
           };
+          if (options.orderBy) {
+            const prefix = field.throughField.name;
+            options.orderBy = toArray(options.orderBy).map(
+              name => `${prefix}.${name}`
+            );
+          }
           promises.push(
             table
               .select({ [field.throughField.name]: fields }, options)
@@ -1089,6 +1098,12 @@ export class Table {
     if (field.throughField) {
       options.where = { [field.throughField.name]: options.where };
       options.where[field.referencingField.name] = values;
+      if (options.orderBy) {
+        const prefix = field.throughField.name;
+        options.orderBy = toArray(options.orderBy).map(
+          name => `${prefix}.${name}`
+        );
+      }
       return table
         .select({ [field.throughField.name]: fields }, options)
         .then(rows => {
