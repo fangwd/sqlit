@@ -118,7 +118,6 @@ function _persist(connection: Connection, record: Record): Promise<Record> {
   const method = record.__state.method;
   const model = record.__table.model;
   const filter = model.getUniqueFields(record.__data);
-
   if (method === FlushMethod.DELETE) {
     return record.__table.delete(filter).then(() => {
       record.__state.deleted = true;
@@ -198,9 +197,11 @@ function flushTable(
   return _flushTable(connection, table, perfect).catch(error => {
     for (let i = 0; i < table.recordList.length; i++) {
       const record = table.recordList[i];
-      const state = states[i];
-      record.__data = { ...state.data };
-      record.__state = state.state.clone();
+      if (record.__dirty()) {
+        const state = states[i];
+        record.__data = { ...state.data };
+        record.__state = state.state.clone();
+      }
     }
     throw error;
   });
@@ -214,6 +215,7 @@ function _flushTable(
   mergeRecords(table);
 
   const filter = [];
+  const dirtySet = new Set();
 
   for (const record of table.recordList) {
     if (
@@ -221,48 +223,42 @@ function _flushTable(
       record.__flushable(perfect) &&
       !record.__state.selected
     ) {
-      filter.push(record.__filter());
+      const entry = record.__filter();
+      for (const name in entry) {
+        dirtySet.add(name);
+      }
+      record.__state.dirty.forEach(name => dirtySet.add(name));
+      filter.push(entry);
     }
   }
 
   const dialect = table.db.pool;
   const model = table.model;
 
+  if (model.keyField()) {
+    dirtySet.add(model.keyField().name);
+  }
+
   function _select(): Promise<any> {
     if (filter.length === 0) return Promise.resolve();
-    const fields = model.fields.filter(field => field.uniqueKey);
+    const fields = model.fields.filter(field => dirtySet.has(field.name));
     const columns = fields.map(field => (field as SimpleField).column.name);
     const expression = columns.map(dialect.escapeId).join(',');
     const from = dialect.escapeId(model.table.name);
     const where = encodeFilter(filter, table.model, dialect);
     const query = `select ${columns.join(',')} from ${from} where ${where}`;
     return connection.query(query).then(rows => {
-      rows = rows.map(row => toDocument(row, table.model));
+      const map = makeMapTable(table);
+      rows.forEach(row => map.append(toDocument(row, table.model)));
+      const startTime = new Date();
       for (const record of table.recordList) {
         if (!record.__dirty()) continue;
-        for (const row of rows) {
-          if (!record.__match(row)) continue;
-          if (!record.__primaryKey()) {
-            const value = row[model.keyField().name];
-            record.__setPrimaryKey(value);
-          }
-          for (const name in row) {
-            if (!record.__state.dirty.has(name)) continue;
-            const lhs = model.valueOf(record.__data as Document, name);
-            const rhs = model.valueOf(row, name);
-            if (lhs === rhs) {
-              record.__state.dirty.delete(name);
-            }
-          }
-          if (record.__dirty()) {
-            if (record.__state.method === FlushMethod.INSERT) {
-              record.__state.method = FlushMethod.UPDATE;
-            }
-          }
-          record.__state.selected = true;
+        const existing = map._mapGet(record);
+        if (existing) {
+          record.__updateState(existing);
         }
       }
-      return table.recordList;
+      const seconds = (new Date().getTime() - startTime.getTime()) / 1000.0;
     });
   }
 
@@ -363,7 +359,7 @@ function mergeRecords(table: Table) {
   }
 }
 
-function flushDatabaseA(connection: Connection, db: Database) {
+function flushDatabaseA(connection: Connection, db: Database): Promise<any> {
   return new Promise((resolve, reject) => {
     function _flush() {
       const promises = db.tableList.map(table =>
@@ -392,7 +388,7 @@ export function flushDatabaseB(connection: Connection, db: Database) {
         .then(results => {
           const count = results.reduce((a, b) => a + b, 0);
           if (count === 0 && db.getDirtyCount() > 0) {
-            if (waiting++) {
+            if (waiting++ > db.tableList.length) {
               dumpDirtyRecords(db);
               throw Error('Circular references');
             }
@@ -413,9 +409,10 @@ export function flushDatabaseB(connection: Connection, db: Database) {
 
 export function flushDatabase(connection: Connection, db: Database) {
   return new Promise((resolve, reject) => {
+    let perfect = true;
     const _flush = () => {
       connection.transaction(() => {
-        flushDatabaseA(connection, db)
+        (perfect ? flushDatabaseA(connection, db) : Promise.resolve())
           .then(() =>
             flushDatabaseB(connection, db).then(() => {
               connection.commit().then(() => {
@@ -425,10 +422,11 @@ export function flushDatabase(connection: Connection, db: Database) {
           )
           .catch(error => {
             connection.rollback().then(() => {
-              if (isIntegrityError(error)) {
+              if (perfect && isIntegrityError(error)) {
+                perfect = false;
                 setTimeout(_flush, Math.random() * 1000);
               } else {
-                reject(error);
+                reject(Error(error));
               }
             });
           });
@@ -442,7 +440,7 @@ function isIntegrityError(error) {
   return /\bDuplicate\b/i.test(error.message);
 }
 
-function dumpDirtyRecords(db: Database, all: boolean = false) {
+export function dumpDirtyRecords(db: Database, all: boolean = false) {
   const tables = {};
   for (const table of db.tableList) {
     const records = [];
@@ -456,4 +454,8 @@ function dumpDirtyRecords(db: Database, all: boolean = false) {
     }
   }
   console.log(JSON.stringify(tables, null, 4));
+}
+
+function makeMapTable(table: Table) {
+  return new Database(table.db.pool, table.db.schema).table(table.model);
 }

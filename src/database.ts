@@ -196,10 +196,15 @@ export class Table {
   recordList: Record[] = [];
   recordMap: { [key: string]: { [key: string]: Record } };
 
+  private __id: string;
+
   constructor(db: Database, model: Model) {
     this.db = db;
     this.model = model;
     this._initMap();
+    this.__id = Math.random()
+      .toString(36)
+      .substring(4);
   }
 
   column(name: string): ColumnInfo {
@@ -245,9 +250,11 @@ export class Table {
           const pk = this.model.keyField().name;
           const values = result.map(row => this.model.valueOf(row, pk));
           const promises = [];
+
           for (const name in fields) {
             const field = this.model.field(name);
             const value = fields[name];
+
             if (field instanceof RelatedField && value) {
               let options, fields;
               if (typeof value !== 'object') {
@@ -261,6 +268,7 @@ export class Table {
                   fields = '*';
                 }
               }
+
               const promise = this._selectRelated(
                 field,
                 values,
@@ -423,9 +431,32 @@ export class Table {
 
   _update(
     connection: Connection,
-    data: Document,
+    fields: Document,
     filter: Filter
   ): Promise<any> {
+    const data = { ...fields };
+
+    for (const name in filter) {
+      if (name in data) {
+        const lhs = data[name];
+        const rhs = filter[name];
+        if (lhs === null) {
+          if (rhs === null) {
+            delete data[name];
+          }
+          continue;
+        }
+        if (rhs === null) continue;
+        if (lhs.toString() === rhs.toString()) {
+          delete data[name];
+        }
+      }
+    }
+
+    if (Object.keys(data).length === 0) {
+      return Promise.resolve(0);
+    }
+
     let sql = `update ${this._name()} set`;
     let cnt = 0;
 
@@ -1010,8 +1041,10 @@ export class Table {
       const value = record.__valueOf(uc);
       if (value !== undefined) {
         const record = this.recordMap[uc.name()][value];
-        if (existing !== record) {
-          if (existing) throw Error(`Inconsistent unique constraint values`);
+        if (record) {
+          if (existing && existing !== record) {
+            throw Error(`Inconsistent unique constraint values`);
+          }
           existing = record;
         }
       }
@@ -1053,6 +1086,12 @@ export class Table {
             [field.throughField.name]: options.where,
             [field.referencingField.name]: value
           };
+          if (options.orderBy) {
+            const prefix = field.throughField.name;
+            options.orderBy = toArray(options.orderBy).map(
+              name => `${prefix}.${name}`
+            );
+          }
           promises.push(
             table
               .select({ [field.throughField.name]: fields }, options)
@@ -1089,6 +1128,12 @@ export class Table {
     if (field.throughField) {
       options.where = { [field.throughField.name]: options.where };
       options.where[field.referencingField.name] = values;
+      if (options.orderBy) {
+        const prefix = field.throughField.name;
+        options.orderBy = toArray(options.orderBy).map(
+          name => `${prefix}.${name}`
+        );
+      }
       return table
         .select({ [field.throughField.name]: fields }, options)
         .then(rows => {
@@ -1131,8 +1176,9 @@ export class Table {
   }
 }
 
-function _toCamel(value: Value, field: SimpleField): Value {
+export function _toCamel(value: Value, field: SimpleField): Value {
   if (/date|time/i.test(field.column.type)) {
+    // MUST BE IN ISO 8601 FORMAT!
     return new Date(value as string).toISOString();
   }
   return value;
@@ -1140,7 +1186,7 @@ function _toCamel(value: Value, field: SimpleField): Value {
 
 export function toRow(value: Value, field: SimpleField): Value {
   if (value && /date|time/i.test(field.column.type)) {
-    return new Date(value as any)
+    return new Date(value as string)
       .toISOString()
       .slice(0, 19)
       .replace('T', ' ');
@@ -1204,6 +1250,7 @@ export function isEmpty(value: Value | Record | any) {
     while (value.__state.merged) {
       value = value.__state.merged;
     }
+    if (value.__primaryKeyDirty()) return true;
     return isEmpty(value.__primaryKey());
   }
 
