@@ -1,5 +1,5 @@
 import { Database } from '../src/database';
-import { Schema } from '../src/model';
+import { Schema, SimpleField } from '../src/model';
 
 import helper = require('./helper');
 
@@ -8,27 +8,128 @@ const NAME = 'example';
 beforeAll(() => helper.createDatabase(NAME));
 afterAll(() => helper.dropDatabase(NAME));
 
-// test('example', async done => {
-//   const db = getDatabase();
+test('query', async done => {
+  const { User, OrderItem, Category } = helper
+    .connectToDatabase(NAME)
+    .getModels();
 
-//   const { User, Post } = db.getModels();
+  {
+    const users = await User.table.select('*');
+    const fields = User.fields.filter(field => field instanceof SimpleField);
+    expect(Object.keys(users[0]).length).toBe(fields.length);
+  }
 
-//   const user = new User({ email: 'user@example.com' });
+  {
+    const users = await User.table.select(['firstName', 'lastName']);
+    expect(Object.keys(users[0]).length).toBe(2);
+    expect('firstName' in users[0]).toBe(true);
+  }
 
-//   const post = new Post({ title: 'My first post', user });
+  {
+    const users = await User.table.select({
+      orders: { code: false },
+      userGroups: { fields: { group: {} } }
+    });
 
-//   user.firstPost = post;
+    // Alice is an admin
+    const alice = users.find(user => user.email.startsWith('alice'));
+    expect(alice.userGroups[0].group.name).toBe('ADMIN');
 
-//   await user.save();
+    // Grace has orders
+    const grace = users.find(user => user.email.startsWith('grace'));
+    expect(grace.orders.length).toBeGreaterThan(0);
+  }
 
-//   const posts = await db.table('post').select('*', { where: { user } });
+  {
+    const items = await OrderItem.table.select({
+      order: { user: '*' }
+    });
 
-//   expect(posts.length).toBe(1);
-//   expect(post.user.id).toBe(user.id);
-//   expect(user.firstPost.id).toBe(post.id);
+    // Grace has orders
+    const rows = items.filter(item =>
+      item.order.user.email.startsWith('grace')
+    );
 
-//   done();
-// });
+    expect(rows.length).toBeGreaterThan(0);
+  }
+
+  {
+    const users = await User.table.select('*', {
+      where: {
+        orders_some: {
+          orderItems_some: '*'
+        }
+      }
+    });
+    const grace = users.find(user => user.email.startsWith('grace'));
+    expect(!!grace).toBe(true);
+  }
+
+  {
+    const fields = {
+      products: {
+        fields: {
+          name: 'title'
+        },
+        where: { name_like: '%' },
+        orderBy: ['name asc']
+      }
+    };
+
+    const rows = await Category.table.select(fields, {
+      where: { name: 'Apple' }
+    });
+
+    expect(rows[0].products[0].title).toBe('American Apple');
+  }
+
+  {
+    const fields = {
+      products: {
+        fields: {
+          name: 'title'
+        },
+        where: { name_like: '%' },
+        orderBy: ['name desc'],
+        limit: 1
+      }
+    };
+
+    const rows = await Category.table.select(fields);
+
+    const apple = rows.find(row => row.name === 'Apple');
+    expect(apple.products.length).toBe(1);
+    expect(apple.products[0].title).toBe('Australian Apple');
+
+    const banana = rows.find(row => row.name === 'Banana');
+    expect(banana.products.length).toBe(1);
+    expect(banana.products[0].title).toBe('Australian Banana');
+  }
+
+  done();
+});
+
+test('create', async done => {
+  const db = getDatabase();
+
+  const { User, Post } = db.getModels();
+
+  const user = new User({ email: 'user@example.com' });
+
+  const post = new Post({ title: 'My first post', user });
+
+  user.firstPost = post;
+
+  await user.save();
+
+  const posts = await db.table('post').select('*', { where: { user } });
+
+  expect(posts.length).toBe(1);
+  expect(post.user.id).toBe(user.id);
+  expect(user.firstPost.id).toBe(post.id);
+
+  done();
+});
 
 // test('models', async done => {
 //   const db = getDatabase();
@@ -51,76 +152,6 @@ afterAll(() => helper.dropDatabase(NAME));
 //   expect(
 //     (await db.table('order').select('*', { where: { user } })).length
 //   ).toBe(0);
-
-//   done();
-// });
-
-// test('select', async done => {
-//   const schema = new Schema(helper.getExampleData());
-//   const db = helper.connectToDatabase(NAME, schema);
-
-//   let fields;
-
-//   fields = {
-//     product: { name: 'title' },
-//     order: { code: 'key', user: { password: false, firstName: 'name' } }
-//   };
-
-//   const rows = await db
-//     .table('order_item')
-//     .select(fields, { orderBy: ['order.user.firstName', 'quantity'] });
-
-//   console.log(JSON.stringify(rows, null, 4));
-
-//   done();
-// });
-
-test('select - one to many', async done => {
-  const schema = new Schema(helper.getExampleData());
-  const db = helper.connectToDatabase(NAME, schema);
-
-  let fields;
-
-  fields = {
-    code: 'key',
-    user: { password: false, firstName: 'name' },
-    orderItems: {
-      fields: { product: { name: 'title' } },
-      where: { product: { name_like: '%Banana%' } },
-      limit: 1
-    }
-  };
-
-  const rows = await db
-    .table('order')
-    .select(fields, { orderBy: ['user.firstName'] });
-
-  console.log(JSON.stringify(rows, null, 4));
-
-  done();
-});
-
-// test('select related', async done => {
-//   const schema = new Schema(helper.getExampleData());
-//   const db = helper.connectToDatabase(NAME, schema);
-
-//   let fields;
-
-//   fields = {
-//     products: {
-//       fields: '*',
-//       /*
-//       fields: {
-//         product: { name: 'title' }
-//       },
-//       */
-//       where: { name_like: '%' }
-//     }
-//   };
-
-//   const rows = await db.table('category').select(fields, { orderBy: ['name'] });
-
-//   console.log(JSON.stringify(rows, null, 4));
 
 //   done();
 // });

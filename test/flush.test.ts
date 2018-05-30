@@ -3,7 +3,7 @@ import { Database, Table } from '../src/database';
 import { Record } from '../src/record';
 
 import helper = require('./helper');
-import { FlushMethod } from '../src/flush';
+import { FlushMethod, dumpDirtyRecords } from '../src/flush';
 
 const NAME = 'flush';
 
@@ -150,7 +150,6 @@ test('flush #1', async done => {
   let parent = table.append({ id: 1 });
 
   await table.insert({ name: 'Child 0', parent: 1 });
-
   for (let i = 0; i < 5; i++) {
     table.append({
       name: `Child ${i % 3}`,
