@@ -1039,19 +1039,14 @@ export class Table {
     let existing: Record;
     for (const uc of this.model.uniqueKeys) {
       const value = record.__valueOf(uc);
-      if (/1855.+?2017-12-31/.test(value))
-        console.log('--', this.__id, uc.name(), value);
       if (value !== undefined) {
         const record = this.recordMap[uc.name()][value];
         if (record) {
-          if (/1855.+?2017-12-31/.test(value))
-            console.log('!!', this.__id, value);
           if (existing && existing !== record) {
             throw Error(`Inconsistent unique constraint values`);
           }
           existing = record;
-        } else if (/1855.+?2017-12-31/.test(value))
-          console.log('XX', this.__id, uc.name(), value);
+        }
       }
     }
     return existing;
@@ -1061,8 +1056,6 @@ export class Table {
     for (const uc of this.model.uniqueKeys) {
       const value = record.__valueOf(uc);
       if (value !== undefined) {
-        if (/1855.+?2017-12-31/.test(value))
-          console.log('++', this.__id, uc.name(), value);
         this.recordMap[uc.name()][value] = record;
       }
     }
@@ -1185,7 +1178,7 @@ export class Table {
 
 export function _toCamel(value: Value, field: SimpleField): Value {
   if (/date|time/i.test(field.column.type)) {
-    console.log(value, new Date(value as string).toISOString());
+    // MUST BE IN ISO 8601 FORMAT!
     return new Date(value as string).toISOString();
   }
   return value;
