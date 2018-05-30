@@ -196,10 +196,15 @@ export class Table {
   recordList: Record[] = [];
   recordMap: { [key: string]: { [key: string]: Record } };
 
+  private __id: string;
+
   constructor(db: Database, model: Model) {
     this.db = db;
     this.model = model;
     this._initMap();
+    this.__id = Math.random()
+      .toString(36)
+      .substring(4);
   }
 
   column(name: string): ColumnInfo {
@@ -1034,12 +1039,19 @@ export class Table {
     let existing: Record;
     for (const uc of this.model.uniqueKeys) {
       const value = record.__valueOf(uc);
+      if (/1855.+?2017-12-31/.test(value))
+        console.log('--', this.__id, uc.name(), value);
       if (value !== undefined) {
         const record = this.recordMap[uc.name()][value];
-        if (existing !== record) {
-          if (existing) throw Error(`Inconsistent unique constraint values`);
+        if (record) {
+          if (/1855.+?2017-12-31/.test(value))
+            console.log('!!', this.__id, value);
+          if (existing && existing !== record) {
+            throw Error(`Inconsistent unique constraint values`);
+          }
           existing = record;
-        }
+        } else if (/1855.+?2017-12-31/.test(value))
+          console.log('XX', this.__id, uc.name(), value);
       }
     }
     return existing;
@@ -1049,6 +1061,8 @@ export class Table {
     for (const uc of this.model.uniqueKeys) {
       const value = record.__valueOf(uc);
       if (value !== undefined) {
+        if (/1855.+?2017-12-31/.test(value))
+          console.log('++', this.__id, uc.name(), value);
         this.recordMap[uc.name()][value] = record;
       }
     }
@@ -1169,8 +1183,9 @@ export class Table {
   }
 }
 
-function _toCamel(value: Value, field: SimpleField): Value {
+export function _toCamel(value: Value, field: SimpleField): Value {
   if (/date|time/i.test(field.column.type)) {
+    console.log(value, new Date(value as string).toISOString());
     return new Date(value as string).toISOString();
   }
   return value;

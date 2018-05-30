@@ -1,4 +1,4 @@
-import { Table, Document, toRow, isEmpty, isValue } from './database';
+import { Table, Document, _toCamel, isEmpty, isValue } from './database';
 import {
   SimpleField,
   ForeignKeyField,
@@ -20,9 +20,24 @@ export const RecordProxy = {
       }
       const model = record.__table.model;
       const field = model.field(name);
-      if (field instanceof SimpleField) {
+      if (field instanceof ForeignKeyField) {
+        if (record.__data[name] !== undefined) {
+          throw Error('Reassignment');
+        } else {
+          if (value instanceof Record || value === null) {
+            record.__data[name] = value;
+          } else {
+            const model = field.referencedField.model;
+            if (typeof value !== 'object') {
+              value = { [model.keyField().name]: value };
+            }
+            record.__data[name] = record.__table.db.table(model).append(value);
+          }
+          record.__state.dirty.add(name);
+        }
+      } else if (field instanceof SimpleField) {
         // user.email = 'user@example.com'
-        record.__data[name] = value;
+        record.__data[name] = _toCamel(value, field);
         record.__state.dirty.add(name);
       } else if (field instanceof RelatedField) {
         throw Error(`Not assignable: ${model.name}.${name}`);
@@ -196,32 +211,11 @@ export class Record {
     return this.__table.model.getUniqueFields(data);
   }
 
-  __match(row: Document): boolean {
-    const model = this.__table.model;
-    const fields = this.__filter();
-    for (const name in fields) {
-      const lhs = model.valueOf(fields, name);
-      const rhs = model.valueOf(row, name);
-      const field = model.field(name) as SimpleField;
-      if (toRow(lhs, field) != toRow(rhs, field)) {
-        return false;
-      }
-    }
-    return true;
-  }
-
   __valueOf(uc: UniqueKey): string {
     const values = [];
     for (const field of uc.fields) {
       let value = this.__getValue(field.name);
       if (value === undefined) return undefined;
-      if (field instanceof ForeignKeyField) {
-        let key = field;
-        while (!isValue(value)) {
-          value = value[key.referencedField.name];
-          key = key.referencedField as ForeignKeyField;
-        }
-      }
       values.push(value);
     }
     return JSON.stringify(values);
@@ -237,6 +231,28 @@ export class Record {
       root.__data[name] = self.__data[name];
       root.__state.dirty.add(name);
     });
+  }
+
+  __updateState(existing: Record) {
+    if (!this.__primaryKey()) {
+      this.__setPrimaryKey(existing.__primaryKey());
+    }
+
+    for (const name in existing.__data) {
+      if (!this.__state.dirty.has(name)) continue;
+      const lhs = this.__getValue(name);
+      const rhs = existing.__getValue(name);
+      // TODO: type wise
+      if (lhs === rhs) {
+        this.__state.dirty.delete(name);
+      }
+    }
+    if (this.__dirty()) {
+      if (this.__state.method === FlushMethod.INSERT) {
+        this.__state.method = FlushMethod.UPDATE;
+      }
+    }
+    this.__state.selected = true;
   }
 
   __json() {

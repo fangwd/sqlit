@@ -776,3 +776,23 @@ test('many to many - disconnect', async done => {
 
   done();
 });
+
+test('append', () => {
+  const db = helper.connectToDatabase(NAME);
+  const table = db.table('category');
+
+  const r1 = table.append({
+    name: 'example',
+    parent: { id: 1 }
+  });
+
+  const r2 = table.append({
+    name: 'example',
+    parent: 1
+  });
+
+  expect(r1.parent).toBe(r2.parent);
+  expect(r1).toBe(r2);
+
+  expect(table.recordList.length).toBe(2);
+});

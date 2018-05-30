@@ -248,32 +248,22 @@ function _flushTable(
     const where = encodeFilter(filter, table.model, dialect);
     const query = `select ${columns.join(',')} from ${from} where ${where}`;
     return connection.query(query).then(rows => {
-      rows = rows.map(row => toDocument(row, table.model));
+      const map = makeMapTable(table);
+      console.log('### doing mapp');
+      rows.forEach(row => map.append(toDocument(row, table.model)));
+      console.log('### done mapp');
+      const startTime = new Date();
       for (const record of table.recordList) {
         if (!record.__dirty()) continue;
-        for (const row of rows) {
-          if (!record.__match(row)) continue;
-          if (!record.__primaryKey()) {
-            const value = row[model.keyField().name];
-            record.__setPrimaryKey(value);
-          }
-          for (const name in row) {
-            if (!record.__state.dirty.has(name)) continue;
-            const lhs = model.valueOf(record.__data as Document, name);
-            const rhs = model.valueOf(row, name);
-            if (lhs === rhs) {
-              record.__state.dirty.delete(name);
-            }
-          }
-          if (record.__dirty()) {
-            if (record.__state.method === FlushMethod.INSERT) {
-              record.__state.method = FlushMethod.UPDATE;
-            }
-          }
-          record.__state.selected = true;
+        const existing = map._mapGet(record);
+        if (existing) {
+          record.__updateState(existing);
         }
+        if (table.model.name === 'CalendarisedAvailabilityTemplateSetItem')
+          console.log(record.__data, table.recordList.length);
       }
-      return table.recordList;
+      const seconds = (new Date().getTime() - startTime.getTime()) / 1000.0;
+      console.log(table.model.name, table.recordList.length, seconds);
     });
   }
 
@@ -375,6 +365,7 @@ function mergeRecords(table: Table) {
 }
 
 function flushDatabaseA(connection: Connection, db: Database): Promise<any> {
+  console.log('............. doing A');
   return new Promise((resolve, reject) => {
     function _flush() {
       const promises = db.tableList.map(table =>
@@ -388,13 +379,17 @@ function flushDatabaseA(connection: Connection, db: Database): Promise<any> {
             _flush();
           }
         })
-        .catch(error => reject(error));
+        .catch(error => {
+          console.log('## A', error);
+          reject(error);
+        });
     }
     _flush();
   });
 }
 
 export function flushDatabaseB(connection: Connection, db: Database) {
+  console.log('............. doing B');
   return new Promise((resolve, reject) => {
     let waiting = 0;
     function _flush() {
@@ -416,7 +411,10 @@ export function flushDatabaseB(connection: Connection, db: Database) {
             resolve();
           }
         })
-        .catch(error => reject(error));
+        .catch(error => {
+          console.log('## B', error);
+          reject(error);
+        });
     }
     _flush();
   });
@@ -441,7 +439,7 @@ export function flushDatabase(connection: Connection, db: Database) {
                 perfect = false;
                 setTimeout(_flush, Math.random() * 1000);
               } else {
-                reject(error);
+                reject(Error(error));
               }
             });
           });
@@ -469,4 +467,8 @@ export function dumpDirtyRecords(db: Database, all: boolean = false) {
     }
   }
   console.log(JSON.stringify(tables, null, 4));
+}
+
+function makeMapTable(table: Table) {
+  return new Database(table.db.pool, table.db.schema).table(table.model);
 }

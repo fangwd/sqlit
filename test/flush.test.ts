@@ -150,7 +150,6 @@ test('flush #1', async done => {
   let parent = table.append({ id: 1 });
 
   await table.insert({ name: 'Child 0', parent: 1 });
-  console.log('inserted***');
   for (let i = 0; i < 5; i++) {
     table.append({
       name: `Child ${i % 3}`,
