@@ -1181,6 +1181,8 @@ export class Table {
 export function _toCamel(value: Value, field: SimpleField): Value {
   if (value === null || value === undefined) return null;
 
+  if (value instanceof Record) return value;
+
   if (/date|time/i.test(field.column.type)) {
     // MUST BE IN ISO 8601 FORMAT!
     return new Date(value as string).toISOString();
