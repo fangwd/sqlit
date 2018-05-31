@@ -190,6 +190,7 @@ export interface SelectOptions {
 
 export class Table {
   db: Database;
+  name: string;
   model: Model;
   closureTable?: ClosureTable;
 
@@ -200,6 +201,7 @@ export class Table {
 
   constructor(db: Database, model: Model) {
     this.db = db;
+    this.name = model.table.name;
     this.model = model;
     this._initMap();
     this.__id = Math.random()
@@ -1177,10 +1179,31 @@ export class Table {
 }
 
 export function _toCamel(value: Value, field: SimpleField): Value {
+  if (value === null || value === undefined) return null;
+
   if (/date|time/i.test(field.column.type)) {
     // MUST BE IN ISO 8601 FORMAT!
     return new Date(value as string).toISOString();
   }
+
+  if (/int|long/i.test(field.column.type)) {
+    return parseInt(value as string);
+  }
+
+  if (/float|double/i.test(field.column.type)) {
+    return parseFloat(value as string);
+  }
+
+  if (/^bool/i.test(field.column.type)) {
+    if (typeof value === 'boolean') {
+      return value;
+    }
+    if (typeof value === 'string') {
+      return /^false|0$/i.test(value) ? false : true;
+    }
+    return !!value;
+  }
+
   return value;
 }
 
