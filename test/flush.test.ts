@@ -303,14 +303,12 @@ test('flush #4', async done => {
 test('flush #5', async done => {
   const schema = new Schema(helper.getExampleData());
   const db = helper.connectToDatabase(NAME, schema);
-  const order = db
-    .table('order')
-    .append({ code: helper.getId(), dateCreated: '23-06-2017' });
+  const order = db.table('order').append({ code: helper.getId() });
 
-  db
-    .flush()
-    .then(() => {})
-    .catch(error => {
-      done();
-    });
+  try {
+    order.dateCreated = '23-06-2017';
+  } catch (error) {
+    expect(/Invalid time value/.test(error.message)).toBe(true);
+    db.flush().then(() => done());
+  }
 });
