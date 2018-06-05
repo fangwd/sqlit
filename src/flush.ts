@@ -229,8 +229,8 @@ function _flushTable(
         nameSet.add(name);
       }
       record.__state.dirty.forEach(name => nameSet.add(name));
-      filter.push(entry);
       recordSet.add(record);
+      filter.push(entry);
     }
   }
 
