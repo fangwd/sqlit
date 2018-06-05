@@ -30,3 +30,17 @@ OrderItem.table.select({
   order: { user: { password: false } }
 });
 ```
+
+
+// tokenisation ... (have a look at the template engine like mouthtouch
+OrderItems.table.select({ _expr "order.quantity > item.quantity" })
+
+while (true) {
+  token = getNextToken()
+  if (not token): break
+  if token is field:
+    push replaced field
+  if token is not an operator:
+    raise
+
+// may need definition of expressions?
