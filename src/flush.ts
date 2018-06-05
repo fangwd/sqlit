@@ -215,7 +215,8 @@ function _flushTable(
   mergeRecords(table);
 
   const filter = [];
-  const dirtySet = new Set();
+  const nameSet = new Set();
+  const recordSet = new Set();
 
   for (const record of table.recordList) {
     if (
@@ -225,9 +226,10 @@ function _flushTable(
     ) {
       const entry = record.__filter();
       for (const name in entry) {
-        dirtySet.add(name);
+        nameSet.add(name);
       }
-      record.__state.dirty.forEach(name => dirtySet.add(name));
+      record.__state.dirty.forEach(name => nameSet.add(name));
+      recordSet.add(record);
       filter.push(entry);
     }
   }
@@ -236,12 +238,12 @@ function _flushTable(
   const model = table.model;
 
   if (model.keyField()) {
-    dirtySet.add(model.keyField().name);
+    nameSet.add(model.keyField().name);
   }
 
   function _select(): Promise<any> {
     if (filter.length === 0) return Promise.resolve();
-    const fields = model.fields.filter(field => dirtySet.has(field.name));
+    const fields = model.fields.filter(field => nameSet.has(field.name));
     const columns = fields.map(field => (field as SimpleField).column.name);
     const expression = columns.map(dialect.escapeId).join(',');
     const from = dialect.escapeId(model.table.name);
@@ -258,7 +260,6 @@ function _flushTable(
           record.__updateState(existing);
         }
       }
-      const seconds = (new Date().getTime() - startTime.getTime()) / 1000.0;
     });
   }
 
@@ -275,6 +276,7 @@ function _flushTable(
     const values = [];
     const records: Record[] = [];
     for (const record of table.recordList) {
+      if (!recordSet.has(record)) continue;
       if (!record.__dirty() || !record.__flushable(perfect)) continue;
       if (record.__state.method !== FlushMethod.INSERT) continue;
       const entry = fields.reduce((values, field) => {
