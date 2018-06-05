@@ -215,7 +215,7 @@ function _flushTable(
   mergeRecords(table);
 
   const filter = [];
-  const fieldSet = new Set();
+  const nameSet = new Set();
   const recordSet = new Set();
 
   for (const record of table.recordList) {
@@ -226,9 +226,9 @@ function _flushTable(
     ) {
       const entry = record.__filter();
       for (const name in entry) {
-        fieldSet.add(name);
+        nameSet.add(name);
       }
-      record.__state.dirty.forEach(name => fieldSet.add(name));
+      record.__state.dirty.forEach(name => nameSet.add(name));
       filter.push(entry);
       recordSet.add(record);
     }
@@ -238,12 +238,12 @@ function _flushTable(
   const model = table.model;
 
   if (model.keyField()) {
-    fieldSet.add(model.keyField().name);
+    nameSet.add(model.keyField().name);
   }
 
   function _select(): Promise<any> {
     if (filter.length === 0) return Promise.resolve();
-    const fields = model.fields.filter(field => fieldSet.has(field.name));
+    const fields = model.fields.filter(field => nameSet.has(field.name));
     const columns = fields.map(field => (field as SimpleField).column.name);
     const expression = columns.map(dialect.escapeId).join(',');
     const from = dialect.escapeId(model.table.name);
