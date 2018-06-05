@@ -216,6 +216,7 @@ function _flushTable(
 
   const filter = [];
   const dirtySet = new Set();
+  const flushSet = new Set();
 
   for (const record of table.recordList) {
     if (
@@ -229,6 +230,7 @@ function _flushTable(
       }
       record.__state.dirty.forEach(name => dirtySet.add(name));
       filter.push(entry);
+      flushSet.add(record);
     }
   }
 
@@ -258,7 +260,6 @@ function _flushTable(
           record.__updateState(existing);
         }
       }
-      const seconds = (new Date().getTime() - startTime.getTime()) / 1000.0;
     });
   }
 
@@ -275,6 +276,7 @@ function _flushTable(
     const values = [];
     const records: Record[] = [];
     for (const record of table.recordList) {
+      if (!flushSet.has(record)) continue;
       if (!record.__dirty() || !record.__flushable(perfect)) continue;
       if (record.__state.method !== FlushMethod.INSERT) continue;
       const entry = fields.reduce((values, field) => {
