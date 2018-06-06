@@ -16,15 +16,15 @@ export class FlushState {
   method: FlushMethod = FlushMethod.INSERT;
   dirty: Set<string> = new Set();
   deleted: boolean = false;
-  merged?: Record;
-  selected?: boolean;
+  merged?: Record = null;
+  selected?: boolean = false;
   clone(): FlushState {
     const state = new FlushState();
     state.method = this.method;
     state.dirty = new Set(this.dirty);
     state.deleted = this.deleted;
-    state.merged = undefined;
-    state.selected = undefined;
+    state.merged = null;
+    state.selected = false;
     return state;
   }
   json() {
@@ -32,7 +32,7 @@ export class FlushState {
       method: FlushMethod[this.method],
       dirty: [...this.dirty],
       deleted: this.deleted,
-      merged: this.merged,
+      merged: this.merged ? this.merged.__repr() : null,
       selected: this.selected
     };
   }
@@ -447,7 +447,7 @@ export function dumpDirtyRecords(db: Database, all: boolean = false) {
   for (const table of db.tableList) {
     const records = [];
     for (const record of table.recordList) {
-      if (record.__dirty() || all) {
+      if ((record.__dirty() && !record.__state.merged) || all) {
         records.push(record.__dump());
       }
     }
