@@ -218,7 +218,7 @@ export class Record {
       if (value === undefined) return undefined;
       values.push(value);
     }
-    return JSON.stringify(values);
+    return JSON.stringify(values).toLocaleLowerCase();
   }
 
   __merge() {
