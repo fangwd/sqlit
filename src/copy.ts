@@ -1,5 +1,5 @@
 import { Database, Table, Filter, Document, toDocument } from './database';
-import { ForeignKeyField, SimpleField } from './model';
+import { Model, ForeignKeyField, SimpleField } from './model';
 import { Record } from './record';
 import { Value } from './engine';
 
@@ -29,12 +29,19 @@ function buildTableFilters(record: Record, options): Map<Table, Filter> {
   const db = record.__table.db;
   const map = new Map();
 
-  let except: Set<string>;
+  const except: Set<Table> = new Set();
 
-  if (options && options.except) {
-    except = new Set(options.except);
-  } else {
-    except = new Set();
+  if (options && options.filter) {
+    for (const name in options.filter) {
+      const table = db.table(name);
+      const value = options.filter[name];
+      if (value) {
+        const filter = getFilter(table, value, record);
+        map.set(table, filter);
+      } else {
+        except.add(table);
+      }
+    }
   }
 
   map.set(record.__table, [record.__data]);
@@ -45,7 +52,7 @@ function buildTableFilters(record: Record, options): Map<Table, Filter> {
     for (const table of db.tableList) {
       if (map.has(table)) continue;
 
-      if (except.has(table.model.name) || except.has(table.model.table.name)) {
+      if (except.has(table)) {
         continue;
       }
 
@@ -132,4 +139,93 @@ function append(table: Table, row: Document) {
       record[field.name] = row[field.name];
     }
   }
+}
+
+function getFilter(table: Table, path: string, record: Record) {
+  const fields = path.split('.');
+  const filter = {};
+
+  let result = filter;
+  let model = table.model;
+  let name: string, field: ForeignKeyField;
+
+  for (let i = 0; i < fields.length - 1; i++) {
+    name = fields[i];
+    field = model.field(name) as ForeignKeyField;
+    if (!(field instanceof ForeignKeyField)) {
+      throw Error(`Bad filter: ${path} (${name})`);
+    }
+    result[name] = {};
+    result = result[name];
+    model = field.referencedField.model;
+  }
+
+  name = fields[fields.length - 1];
+  field = model.field(name) as ForeignKeyField;
+
+  if (!(field instanceof ForeignKeyField)) {
+    throw Error(`Bad filter: ${path} (${name})`);
+  }
+
+  model = field.referencedField.model;
+
+  if (model === record.__table.model) {
+    result[name] = record.__data;
+    return filter;
+  }
+
+  const shortest = getShortestPath(model, record.__table.model);
+
+  if (shortest.length === 0) {
+    throw Error(`Bad filter: ${path} (not reachable)`);
+  }
+
+  result[name] = {};
+  result = result[name];
+
+  for (let i = 0; i < shortest.length; i++) {
+    name = shortest[i];
+    if (i === shortest.length - 1) {
+      result[name] = record.__data;
+    } else {
+      result[name] = {};
+      result = result[name];
+    }
+  }
+
+  return filter;
+}
+
+function getPaths(
+  from: Model,
+  to: Model,
+  visited: Set<ForeignKeyField>
+): string[][] {
+  const result = [];
+  for (const field of from.fields) {
+    if (field instanceof ForeignKeyField && !visited.has(field)) {
+      const model = field.referencedField.model;
+      visited.add(field);
+      if (model === to) {
+        result.push([field.name]);
+      } else {
+        for (const path of getPaths(model, to, visited)) {
+          result.push([field.name, ...path]);
+        }
+      }
+    }
+  }
+  return result;
+}
+
+export function getShortestPath(from: Model, to: Model): string[] {
+  if (from === to) return [];
+
+  let result: string[] = null;
+  for (const path of getPaths(from, to, new Set())) {
+    if (!result || result.length > path.length) {
+      result = path;
+    }
+  }
+  return result;
 }
