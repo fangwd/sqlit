@@ -1206,6 +1206,11 @@ export function _toCamel(value: Value, field: SimpleField): Value {
     return !!value;
   }
 
+  if (field.uniqueKey) {
+    // mysql ...
+    return (value + '').trim();
+  }
+
   return value;
 }
 
