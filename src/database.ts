@@ -197,16 +197,11 @@ export class Table {
   recordList: Record[] = [];
   recordMap: { [key: string]: { [key: string]: Record } };
 
-  private __id: string;
-
   constructor(db: Database, model: Model) {
     this.db = db;
     this.name = model.table.name;
     this.model = model;
     this._initMap();
-    this.__id = Math.random()
-      .toString(36)
-      .substring(4);
   }
 
   column(name: string): ColumnInfo {
