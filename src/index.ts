@@ -58,6 +58,8 @@ import {
   toPascalCase
 } from './misc';
 
+import { getopt } from '../lib/getopt';
+
 export {
   Schema,
   SchemaInfo,
@@ -103,5 +105,6 @@ export {
   setPluralForms,
   toArray,
   toCamelCase,
-  toPascalCase
+  toPascalCase,
+  getopt
 };

@@ -8,6 +8,6 @@
     "outDir": "dist",
     "lib": ["es6", "esnext.asynciterable"]
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "lib/**/*"],
   "exclude": ["node_modules"]
 }
