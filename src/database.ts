@@ -1001,6 +1001,35 @@ export class Table {
     });
   }
 
+  claim(filter: Filter, data: Document): Promise<Document> {
+    const self = this;
+
+    return new Promise(resolve => {
+      function _select() {
+        self.select('*', { where: filter, limit: 10 }).then(rows => {
+          if (rows.length === 0) {
+            resolve(null);
+          } else {
+            const row = rows[Math.floor(Math.random() * rows.length)];
+            _update(row);
+          }
+        });
+      }
+
+      function _update(row) {
+        self.update(data, self.model.getUniqueFields(row)).then(result => {
+          if (result === 1) {
+            resolve(row);
+          } else {
+            setTimeout(_select, Math.random() * 1000);
+          }
+        });
+      }
+
+      _select();
+    });
+  }
+
   append(data?: { [key: string]: any } | any[]): Record {
     const record = new Proxy(new Record(this), RecordProxy);
     Object.assign(record, data);

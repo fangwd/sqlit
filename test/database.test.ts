@@ -38,8 +38,7 @@ test('select', done => {
     offset: 1,
     limit: 1
   };
-  db
-    .table('product')
+  db.table('product')
     .select('*', options)
     .then(rows => {
       expect(rows.length).toBe(1);
@@ -52,13 +51,11 @@ test('insert', done => {
   expect.assertions(2);
 
   const db = helper.connectToDatabase(NAME);
-  db
-    .table('category')
+  db.table('category')
     .insert({ name: 'Frozen' })
     .then(id => {
       expect(id).toBeGreaterThan(0);
-      db
-        .table('category')
+      db.table('category')
         .select('*', { where: { name: 'Frozen' } })
         .then(rows => {
           expect(rows.length).toBe(1);
@@ -71,17 +68,14 @@ test('update', done => {
   expect.assertions(3);
 
   const db = helper.connectToDatabase(NAME);
-  db
-    .table('category')
+  db.table('category')
     .insert({ name: 'Ice' })
     .then(id => {
       expect(id).toBeGreaterThan(0);
-      db
-        .table('category')
+      db.table('category')
         .update({ name: 'Ice Cream' }, { name: 'Ice' })
         .then(() => {
-          db
-            .table('category')
+          db.table('category')
             .select('*', { where: { id } })
             .then(rows => {
               expect(rows.length).toBe(1);
@@ -795,4 +789,35 @@ test('append', () => {
   expect(r1).toBe(r2);
 
   expect(table.recordList.length).toBe(2);
+});
+
+test('claim', async done => {
+  const db = helper.connectToDatabase(NAME);
+  const table = db.table('order');
+
+  for (let i = 0; i < 10; i++) {
+    table.append({ code: `T-${i}`, status: 0 });
+  }
+
+  await db.flush();
+
+  const filter = { code_like: 'T-%', status: 0 };
+  const update = { status: 1 };
+
+  const promises = [];
+
+  for (let i = 0; i < 11; i++) {
+    promises.push(table.claim(filter, update));
+  }
+
+  Promise.all(promises).then(async rows => {
+    expect(rows.length).toBe(11);
+    const empty = rows.filter(row => row === null);
+    expect(empty.length).toBe(1);
+    rows = await table.select('*', { where: filter });
+    expect(rows.length).toBe(0);
+    rows = await table.select('*', { where: { ...filter, ...update } });
+    expect(rows.length).toBe(10);
+    done();
+  });
 });
