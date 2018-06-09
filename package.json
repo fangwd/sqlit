@@ -1,9 +1,15 @@
 {
   "name": "sqlit",
-  "version": "1.2.4",
+  "version": "1.2.5",
   "description": "Sqlit - A library that makes database access easy and fun",
   "main": "./dist/index.js",
-  "files": ["dist", "LICENSE", "package.json", "README.md"],
+  "files": [
+    "dist",
+    "lib",
+    "LICENSE",
+    "package.json",
+    "README.md"
+  ],
   "types": "./dist/index.d.ts",
   "author": "Weidong Fang",
   "license": "MIT",
@@ -30,9 +36,18 @@
       "^.+\\.tsx?$": "ts-jest"
     },
     "testRegex": "/test/.+\\.test.ts",
-    "moduleFileExtensions": ["ts", "tsx", "js", "jsx", "json", "node"],
+    "moduleFileExtensions": [
+      "ts",
+      "tsx",
+      "js",
+      "jsx",
+      "json",
+      "node"
+    ],
     "collectCoverage": false,
-    "collectCoverageFrom": ["src/**/*.ts"],
+    "collectCoverageFrom": [
+      "src/**/*.ts"
+    ],
     "verbose": true
   }
 }
