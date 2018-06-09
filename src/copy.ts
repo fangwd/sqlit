@@ -3,8 +3,8 @@ import { Model, ForeignKeyField, SimpleField } from './model';
 import { Record } from './record';
 import { Value } from './engine';
 
-interface CopyOptions {
-  except?: string[];
+export interface CopyOptions {
+  filter?: { [key: string]: string | null };
 }
 
 export function copyRecord(
@@ -25,7 +25,10 @@ export function copyRecord(
   });
 }
 
-function buildTableFilters(record: Record, options): Map<Table, Filter> {
+function buildTableFilters(
+  record: Record,
+  options: CopyOptions
+): Map<Table, Filter> {
   const db = record.__table.db;
   const map = new Map();
 

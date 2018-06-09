@@ -297,7 +297,7 @@ export class Record {
   }
 }
 
-class RecordSet {
+export class RecordSet {
   record: Record;
   field: RelatedField;
 
