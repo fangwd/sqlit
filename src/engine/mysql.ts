@@ -74,7 +74,7 @@ class _Connection extends Connection {
         } else if (results.insertId) {
           resolve(results.insertId);
         } else {
-          resolve(results.affectedRows);
+          resolve(results.changedRows);
         }
       })
     );
