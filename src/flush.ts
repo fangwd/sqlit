@@ -60,14 +60,12 @@ function collectParentFields(
   record.__state.dirty.forEach(key => {
     const value = record.__data[key];
     if (value instanceof Record) {
-      if (value.__primaryKey() === undefined) {
-        if (value.__flushable(perfect)) {
-          // assert value.__state.method === FlushMethod.INSERT
-          const promise = _persist(context.connection, value);
-          context.promises.push(promise);
-        } else {
-          collectParentFields(value, context, perfect);
-        }
+      if (value.__flushable(perfect)) {
+        // assert value.__state.method === FlushMethod.INSERT
+        const promise = _persist(context.connection, value);
+        context.promises.push(promise);
+      } else {
+        collectParentFields(value, context, perfect);
       }
     }
   });
@@ -151,14 +149,27 @@ function _persist(connection: Connection, record: Record): Promise<Record> {
         })
         .catch(error => {
           if (!isIntegrityError(error)) return reject(error);
+
+          if (Object.keys(fields).length === 1) {
+            const name = Object.keys(fields)[0];
+            if (record.__table.model.field(name).uniqueKey.primary) {
+              record.__remove_dirty(name);
+              return resolve(record);
+            }
+          }
+
           record.__table._get(connection, filter).then(row => {
             if (row) {
               if (record.__primaryKey() === undefined) {
                 const value = row[model.primaryKey.fields[0].name];
                 record.__setPrimaryKey(value as Value);
               }
-              record.__remove_dirty(Object.keys(filter));
-              Object.keys(filter).forEach(key => delete fields[key]);
+              for (const key in row) {
+                if (fields[key] === record.__table.model.valueOf(row, key)) {
+                  record.__remove_dirty(key);
+                  delete fields[key];
+                }
+              }
               if (Object.keys(fields).length === 0 || !record.__dirty()) {
                 resolve(record);
               } else {
