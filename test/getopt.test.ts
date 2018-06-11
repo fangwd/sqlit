@@ -14,6 +14,8 @@ test('getopt', () => {
 
   options = getopt(specs, ['-uroot', '--password=secret', '-v']);
 
+  expect(options['-u']).toBe(true);
+  expect(options['--user']).toBe(true);
   expect(options.user).toBe('root');
   expect(options.password).toBe(undefined);
   expect(options.secret).toBe('secret');
