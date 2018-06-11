@@ -82,6 +82,10 @@ export class Database {
     );
   }
 
+  clone(): Database {
+    return new Database(this.pool, this.schema);
+  }
+
   private setSchema(schema: Schema) {
     this.schema = schema;
 
