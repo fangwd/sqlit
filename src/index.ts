@@ -58,6 +58,7 @@ import {
   toPascalCase
 } from './misc';
 
+import { Record } from './record';
 import { getopt } from '../lib/getopt';
 
 export {
@@ -72,6 +73,7 @@ export {
   UniqueKey,
   Database,
   Table,
+  Record,
   Document,
   Filter,
   SelectOptions,
