@@ -256,7 +256,6 @@ function _flushTable(
     if (filter.length === 0) return Promise.resolve();
     const fields = model.fields.filter(field => nameSet.has(field.name));
     const columns = fields.map(field => (field as SimpleField).column.name);
-    const expression = columns.map(dialect.escapeId).join(',');
     const from = dialect.escapeId(model.table.name);
     const where = encodeFilter(filter, table.model, dialect);
     const query = `select ${columns.join(',')} from ${from} where ${where}`;
@@ -278,18 +277,40 @@ function _flushTable(
   let updateCount;
 
   function _insert() {
+    let nameSet: Set<string> = new Set();
+
+    const shouldInsert = (record: Record) => {
+      return (
+        recordSet.has(record) &&
+        record.__dirty() &&
+        record.__flushable(perfect) &&
+        record.__state.method === FlushMethod.INSERT
+      );
+    };
+
+    for (const record of table.recordList) {
+      if (!shouldInsert(record)) continue;
+      if (nameSet.size === 0) {
+        nameSet = record.__state.dirty;
+      } else if (!__equal(nameSet, record.__state.dirty)) {
+        throw Error('Field names not consistent');
+      }
+    }
+
     const fields = model.fields.filter(
-      field => field instanceof SimpleField && !field.column.autoIncrement
+      field =>
+        field instanceof SimpleField &&
+        !field.column.autoIncrement &&
+        nameSet.has(field.name)
     );
+
     const names = fields.map(field => (field as SimpleField).column.name);
     const columns = names.map(dialect.escapeId).join(',');
     const into = dialect.escapeId(model.table.name);
     const values = [];
     const records: Record[] = [];
     for (const record of table.recordList) {
-      if (!recordSet.has(record)) continue;
-      if (!record.__dirty() || !record.__flushable(perfect)) continue;
-      if (record.__state.method !== FlushMethod.INSERT) continue;
+      if (!shouldInsert(record)) continue;
       const entry = fields.reduce((values, field) => {
         if (!(field as SimpleField).column.autoIncrement) {
           const value = record.__getValue(field.name);
@@ -471,4 +492,10 @@ export function dumpDirtyRecords(db: Database, all: boolean = false) {
 
 function makeMapTable(table: Table) {
   return new Database(table.db.pool, table.db.schema).table(table.model);
+}
+
+function __equal(s1: Set<string>, s2: Set<string>): boolean {
+  if (s1.size !== s2.size) return false;
+  for (const a of s1) if (!s2.has(a)) return false;
+  return true;
 }
