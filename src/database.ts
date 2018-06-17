@@ -1005,12 +1005,12 @@ export class Table {
     });
   }
 
-  claim(filter: Filter, data: Document): Promise<Document> {
+  claim(filter: Filter, data: Document, orderBy?: string[]): Promise<Document> {
     const self = this;
 
     return new Promise(resolve => {
       function _select() {
-        self.select('*', { where: filter, limit: 10 }).then(rows => {
+        self.select('*', { where: filter, limit: 10, orderBy }).then(rows => {
           if (rows.length === 0) {
             resolve(null);
           } else {
