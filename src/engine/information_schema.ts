@@ -33,7 +33,7 @@ class Builder {
       .query(
         `SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = '${
           this.schemaName
-        }'`
+        }' AND TABLE_TYPE='BASE TABLE'`
       )
       .then(rows => {
         const tables: TableInfo[] = [];
