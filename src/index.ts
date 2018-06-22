@@ -59,7 +59,6 @@ import {
 } from './misc';
 
 import { Record } from './record';
-import { getopt } from '../lib/getopt';
 
 export {
   Schema,
@@ -107,6 +106,5 @@ export {
   setPluralForms,
   toArray,
   toCamelCase,
-  toPascalCase,
-  getopt
+  toPascalCase
 };

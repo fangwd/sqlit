@@ -5,6 +5,7 @@ import { Connection, Row, Value } from './engine';
 import { encodeFilter } from './filter';
 
 import { SimpleField } from './model';
+import { promiseAll } from './misc';
 
 export enum FlushMethod {
   INSERT,
@@ -277,7 +278,14 @@ function _flushTable(
   let updateCount;
 
   function _insert() {
-    let nameSet: Set<string> = new Set();
+    interface MapEntry {
+      names: string[];
+      records: Record[];
+    }
+
+    const nameMap: Map<string, MapEntry> = new Map();
+
+    insertCount = 0;
 
     const shouldInsert = (record: Record) => {
       return (
@@ -288,57 +296,55 @@ function _flushTable(
       );
     };
 
+    const getNames = (record: Record) => {
+      const names = [];
+
+      for (const name of record.__state.dirty) {
+        if (record.__getValue(name) !== undefined) {
+          names.push(name);
+        }
+      }
+
+      return names;
+    };
+
     for (const record of table.recordList) {
       if (!shouldInsert(record)) continue;
-      if (nameSet.size === 0) {
-        nameSet = record.__state.dirty;
-      } else if (!__equal(nameSet, record.__state.dirty)) {
-        throw Error('Field names not consistent');
+
+      insertCount++;
+
+      const names = getNames(record);
+      const key = names.join('-');
+      const me = nameMap.get(key);
+
+      if (me) {
+        me.records.push(record);
+      } else {
+        nameMap.set(key, { names, records: [record] });
       }
     }
 
-    const fields = model.fields.filter(
-      field =>
-        field instanceof SimpleField &&
-        !field.column.autoIncrement &&
-        nameSet.has(field.name)
-    );
+    const promises = [];
 
-    const names = fields.map(field => (field as SimpleField).column.name);
-    const columns = names.map(dialect.escapeId).join(',');
-    const into = dialect.escapeId(model.table.name);
-    const values = [];
-    const records: Record[] = [];
-    for (const record of table.recordList) {
-      if (!shouldInsert(record)) continue;
-      const entry = fields.reduce((values, field) => {
-        if (!(field as SimpleField).column.autoIncrement) {
-          const value = record.__getValue(field.name);
-          values.push(table.escapeValue(field as SimpleField, value));
-          if (value !== undefined) {
-            record.__remove_dirty(field.name);
-          }
-        }
-        return values;
-      }, []);
-      values.push(`(${entry})`);
-      records.push(record);
+    for (const entry of nameMap.values()) {
+      promises.push(
+        _insertRecords(connection, table, entry.names, entry.records)
+      );
     }
 
-    if ((insertCount = values.length) > 0) {
-      const joined = values.join(', ');
-      const query = `insert into ${into} (${columns}) values ${joined}`;
-      return connection.query(query).then(id => {
-        for (const record of records) {
+    return Promise.all(promises).then(results => {
+      let i = 0;
+      for (const entry of nameMap.values()) {
+        let id = results[i++];
+        for (const record of entry.records) {
           if (model.primaryKey.autoIncrement()) {
             record.__setPrimaryKey(id++);
           }
           record.__state.selected = true;
           record.__state.method = FlushMethod.UPDATE;
         }
-        return records;
-      });
-    }
+      }
+    });
   }
 
   function _update() {
@@ -459,6 +465,8 @@ export function flushDatabase(connection: Connection, db: Database) {
               if (perfect && isIntegrityError(error)) {
                 perfect = false;
                 setTimeout(_flush, Math.random() * 1000);
+              } else if (isRetryable(error)) {
+                setTimeout(_flush, Math.random() * 1000);
               } else {
                 reject(Error(error));
               }
@@ -472,6 +480,10 @@ export function flushDatabase(connection: Connection, db: Database) {
 
 function isIntegrityError(error) {
   return /\bDuplicate\b/i.test(error.message);
+}
+
+function isRetryable(error) {
+  return /\bDeadlock\b/i.test(error.message);
 }
 
 export function dumpDirtyRecords(db: Database, all: boolean = false) {
@@ -498,4 +510,36 @@ function __equal(s1: Set<string>, s2: Set<string>): boolean {
   if (s1.size !== s2.size) return false;
   for (const a of s1) if (!s2.has(a)) return false;
   return true;
+}
+
+/**
+ * Inserts a list of records sharing the same set of dirty fields
+ */
+export function _insertRecords(
+  connection: Connection,
+  table: Table,
+  names: string[],
+  records: Record[]
+): Promise<Record[]> {
+  const escape = table.db.pool.escapeId;
+  const model = table.model;
+
+  const fields = names.map(name => model.field(name) as SimpleField);
+  const columns = fields.map(field => escape(field.column.name)).join(',');
+
+  const values = [];
+
+  for (const record of records) {
+    const value = [];
+    for (const field of fields) {
+      value.push(table.escapeValue(field, record.__getValue(field.name)));
+      record.__remove_dirty(field.name);
+    }
+    values.push(`(${value.join(',')})`);
+  }
+
+  const into = escape(table.name);
+  const query = `insert into ${into} (${columns}) values ${values.join(',')}`;
+
+  return connection.query(query);
 }

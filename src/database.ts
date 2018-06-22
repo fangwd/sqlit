@@ -69,11 +69,11 @@ export class Database {
     }, {});
   }
 
-  buildSchema(name: string, config?: SchemaConfig): Promise<Schema> {
+  buildSchema(config?: SchemaConfig): Promise<Schema> {
     if (this.schema) return Promise.resolve(this.schema);
     return new Promise(resolve =>
       this.pool.getConnection().then(connection =>
-        getInformationSchema(connection, name || this.name).then(schemaInfo => {
+        getInformationSchema(connection, this.name).then(schemaInfo => {
           const schema = new Schema(schemaInfo);
           this.setSchema(schema);
           resolve(schema);

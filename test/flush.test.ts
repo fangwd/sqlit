@@ -312,3 +312,42 @@ test('flush #5', async done => {
     db.flush().then(() => done());
   }
 });
+
+test('flush #6', async done => {
+  const schema = new Schema(helper.getExampleData());
+  const db = helper.connectToDatabase(NAME, schema);
+
+  const email = helper.getId();
+  db.table('user').append({ email, firstName: 'name' });
+  await db.flush();
+  db.clear();
+
+  db.table('user').append({ email, firstName: 'name-1' });
+
+  const email2 = helper.getId();
+  db.table('user').append({ email: email2, firstName: 'name-2' });
+
+  const email3 = helper.getId();
+  db.table('user').append({ email: email3, lastName: 'name-3' });
+
+  const email4 = helper.getId();
+  db.table('user').append({ email: email4, lastName: 'name-4' });
+
+  await db.flush();
+
+  let user;
+
+  user = await db.table('user').get({ email });
+  expect(user.firstName).toBe('name-1');
+
+  user = await db.table('user').get({ email: email2 });
+  expect(user.firstName).toBe('name-2');
+
+  user = await db.table('user').get({ email: email3 });
+  expect(user.lastName).toBe('name-3');
+
+  user = await db.table('user').get({ email: email4 });
+  expect(user.lastName).toBe('name-4');
+
+  done();
+});
