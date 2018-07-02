@@ -1,18 +1,20 @@
-const { createConnection, getInformationSchema } = require('../dist');
-const getopt = require('../lib/getopt');
+const {
+  createConnection,
+  getInformationSchema,
+  printSchema
+} = require('../dist');
 
-const options = getopt(
-  [
-    ['  ', '--dialect'],
-    ['-u', '--user'],
-    ['-p', '--password'],
-    ['  ', '--json', true]
-  ],
-  process.argv,
-  2
-);
+const getopt = require('@wdfang/getcli');
 
-if (options.json) {
+const options = getopt([
+  ['  ', '--dialect'],
+  ['-u', '--user'],
+  ['-p', '--password'],
+  ['  ', '--json', true],
+  ['  ', '--export', true]
+]);
+
+if (options.json || options.export) {
   const database = options.argv[0];
 
   const connection = createConnection(options.dialect || 'mysql', {
@@ -22,7 +24,11 @@ if (options.json) {
   });
 
   getInformationSchema(connection, database).then(schema => {
-    console.log(JSON.stringify(schema, null, 4));
+    if (options.export) {
+      console.log(printSchema(schema));
+    } else {
+      console.log(JSON.stringify(schema, null, 4));
+    }
     connection.disconnect();
   });
 }

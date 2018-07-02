@@ -60,6 +60,8 @@ import {
 
 import { Record } from './record';
 
+import { printSchema } from './print';
+
 export {
   Schema,
   SchemaInfo,
@@ -106,5 +108,6 @@ export {
   setPluralForms,
   toArray,
   toCamelCase,
-  toPascalCase
+  toPascalCase,
+  printSchema
 };
