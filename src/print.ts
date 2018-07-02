@@ -1,14 +1,17 @@
 import { Schema, SchemaInfo } from './model';
 import { SimpleField, ForeignKeyField, RelatedField } from '.';
 
-export function printSchema(schema: Schema | SchemaInfo): string {
+export function printSchema(
+  schema: Schema | SchemaInfo,
+  keyword: string = 'interface'
+): string {
   if (!(schema instanceof Schema)) {
     schema = new Schema(schema);
   }
 
   const lines = [];
   for (const model of schema.models) {
-    lines.push(`class ${model.name}`);
+    lines.push(`export ${keyword} ${model.name}`);
     lines.push(`{`);
     for (const field of model.fields) {
       let typeName;
@@ -24,9 +27,10 @@ export function printSchema(schema: Schema | SchemaInfo): string {
           typeName = relatedField.referencingField.model.name + '[]';
         }
       }
-      lines.push(`${field.name}: ${typeName};`);
+      lines.push(`${field.name}?: ${typeName};`);
     }
     lines.push(`}`);
+    lines.push('');
   }
   return lines.join('\n');
 }
