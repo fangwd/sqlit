@@ -1,6 +1,9 @@
-import {
+export {
   Schema,
   SchemaInfo,
+  TableInfo,
+  ColumnInfo,
+  ConstraintInfo,
   SchemaConfig,
   Model,
   Field,
@@ -10,7 +13,7 @@ import {
   UniqueKey
 } from './model';
 
-import {
+export {
   Database,
   Table,
   Document,
@@ -20,7 +23,7 @@ import {
   toRow
 } from './database';
 
-import {
+export {
   Dialect,
   ConnectionInfo,
   createConnection,
@@ -32,7 +35,7 @@ import {
   getInformationSchema
 } from './engine';
 
-import {
+export {
   QueryBuilder,
   encodeFilter,
   AND,
@@ -50,7 +53,7 @@ import {
   NONE
 } from './filter';
 
-import {
+export {
   setPluralForm,
   setPluralForms,
   toArray,
@@ -58,56 +61,6 @@ import {
   toPascalCase
 } from './misc';
 
-import { Record } from './record';
+export { Record } from './record';
 
-import { printSchema } from './print';
-
-export {
-  Schema,
-  SchemaInfo,
-  SchemaConfig,
-  Model,
-  Field,
-  SimpleField,
-  ForeignKeyField,
-  RelatedField,
-  UniqueKey,
-  Database,
-  Table,
-  Record,
-  Document,
-  Filter,
-  SelectOptions,
-  toDocument,
-  toRow,
-  Dialect,
-  ConnectionInfo,
-  Connection,
-  ConnectionPool,
-  createConnection,
-  createConnectionPool,
-  Row,
-  Value,
-  getInformationSchema,
-  QueryBuilder,
-  encodeFilter,
-  AND,
-  OR,
-  NOT,
-  LT,
-  LE,
-  GE,
-  GT,
-  NE,
-  IN,
-  LIKE,
-  NULL,
-  SOME,
-  NONE,
-  setPluralForm,
-  setPluralForms,
-  toArray,
-  toCamelCase,
-  toPascalCase,
-  printSchema
-};
+export { printSchema } from './print';
