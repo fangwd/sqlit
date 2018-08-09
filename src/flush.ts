@@ -263,7 +263,6 @@ function _flushTable(
     return connection.query(query).then(rows => {
       const map = makeMapTable(table);
       rows.forEach(row => map.append(toDocument(row, table.model)));
-      const startTime = new Date();
       for (const record of table.recordList) {
         if (!record.__dirty()) continue;
         const existing = map._mapGet(record);
