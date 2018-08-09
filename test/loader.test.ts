@@ -213,27 +213,3 @@ test('load with defaults', async done => {
 
   done();
 });
-
-test('skip incomplete', async done => {
-  const db = helper.connectToDatabase(NAME);
-  const table = db.table('category');
-
-  const config = {
-    category: {
-      categoryName: 'name',
-      '*': 'categoryAttributes[name, value]'
-    }
-  };
-
-  {
-    const data = [
-      {
-        categoryName: 'Example C1',
-        colour: 'Red',
-        weight: '100kg'
-      }
-    ];
-  }
-
-  done();
-});
