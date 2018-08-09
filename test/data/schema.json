@@ -222,6 +222,60 @@
             ]
         },
         {
+            "name": "category_attribute",
+            "columns": [
+                {
+                    "name": "id",
+                    "type": "integer",
+                    "nullable": false,
+                    "autoIncrement": true
+                },
+                {
+                    "name": "category_id",
+                    "type": "integer",
+                    "nullable": true
+                },
+                {
+                    "name": "name",
+                    "type": "varchar",
+                    "size": 80,
+                    "nullable": true
+                },
+                {
+                    "name": "value",
+                    "type": "varchar",
+                    "size": 1024,
+                    "nullable": true
+                }
+            ],
+            "constraints": [
+                {
+                    "columns": [
+                        "category_id"
+                    ],
+                    "references": {
+                        "table": "category",
+                        "columns": [
+                            "id"
+                        ]
+                    }
+                },
+                {
+                    "primaryKey": true,
+                    "columns": [
+                        "id"
+                    ]
+                },
+                {
+                    "unique": true,
+                    "columns": [
+                        "category_id",
+                        "name"
+                    ]
+                }
+            ]
+        },
+        {
             "name": "category_tree",
             "columns": [
                 {

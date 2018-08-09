@@ -32,6 +32,15 @@ create table category (
   unique (parent_id, name)
 );
 
+create table category_attribute (
+  id integer primary key auto_increment,
+  category_id integer default null,
+  name varchar(80),
+  value varchar(1024),
+  foreign key (category_id) references category(id) on delete set null,
+  unique (category_id, name)
+);
+
 create table category_tree (
   id integer primary key auto_increment,
   ancestor_id integer not null,
