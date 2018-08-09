@@ -110,7 +110,7 @@ test('query', async done => {
 });
 
 test('create', async done => {
-  const db = getDatabase();
+  const db = await getDatabase();
 
   const { User, Post } = db.getModels();
 
@@ -157,26 +157,19 @@ test('create', async done => {
 // });
 
 function getDatabase() {
-  return new Database(
-    {
-      dialect: 'mysql',
-      connection: {
-        host: 'localhost',
-        user: 'root',
-        password: 'secret',
-        database: 'blog',
-        timezone: 'Z',
-        connectionLimit: 10
-      }
-    },
-    new Schema(
-      JSON.parse(
-        require('fs')
-          .readFileSync('schema.json')
-          .toString()
-      )
-    )
-  );
+  const db = new Database({
+    dialect: 'mysql',
+    connection: {
+      host: 'localhost',
+      user: 'root',
+      password: 'secret',
+      database: 'blog',
+      timezone: 'Z',
+      connectionLimit: 10
+    }
+  });
+
+  return db.buildSchema().then(() => db);
 }
 
 // https://github.com/nodejs/node/issues/8071
