@@ -27,7 +27,11 @@ export function printSchema(
           typeName = relatedField.referencingField.model.name + '[]';
         }
       }
-      lines.push(`${field.name}?: ${typeName};`);
+      let flag = '';
+      if (field instanceof SimpleField && !field.column.nullable) {
+        flag = '?';
+      }
+      lines.push(`${field.name}${flag}: ${typeName};`);
     }
     lines.push(`}`);
     lines.push('');
