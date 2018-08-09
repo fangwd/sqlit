@@ -2,7 +2,7 @@ import { Value, ConnectionInfo, createConnectionPool } from './engine';
 
 import { flushDatabase } from './flush';
 import { RecordProxy, Record, getModel } from './record';
-
+import { loadTable, RecordConfig } from './loader';
 import {
   Schema,
   Model,
@@ -11,7 +11,6 @@ import {
   ForeignKeyField,
   RelatedField,
   ColumnInfo,
-  UniqueKey,
   SchemaConfig
 } from './model';
 
@@ -1203,6 +1202,15 @@ export class Table {
         }
       });
     }
+  }
+
+  // It is strongly recommended to call db.clear() before calling this method!
+  load(
+    data: Document | Document[],
+    config: RecordConfig,
+    defaults?: Document
+  ): Promise<any> {
+    return loadTable(this, data, config, defaults);
   }
 }
 
