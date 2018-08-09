@@ -1,10 +1,12 @@
+#!/usr/bin/env node
+
 const {
   createConnection,
   getInformationSchema,
   printSchema
 } = require('../dist');
 
-const getopt = require('@wdfang/getcli');
+const getopt = require('../lib/getopt');
 
 const options = getopt([
   ['  ', '--dialect'],
