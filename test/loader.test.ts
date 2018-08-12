@@ -213,3 +213,50 @@ test('load with defaults', async done => {
 
   done();
 });
+
+test('load many to many', async done => {
+  const db = helper.connectToDatabase(NAME);
+  const table = db.table('product');
+
+  const config = {
+    sku: 'sku',
+    name: 'name',
+    category: 'categories.name'
+  };
+
+  const data = [
+    {
+      sku: 'prod-1',
+      name: 'Product 1',
+      category: 'Fancy'
+    },
+    {
+      sku: 'prod-2',
+      name: 'Product 2',
+      category: 'Fancy'
+    }
+  ];
+
+  await table.load(data, config, { categories: { parent: 1 } });
+
+  const products = await db.table('product').select('*', {
+    where: { sku_like: 'prod-%' },
+    orderBy: ['sku']
+  });
+
+  expect(products.length).toBe(2);
+
+  const category = (await db.table('category').select('*', {
+    where: { name: 'Fancy' }
+  }))[0];
+
+  expect(!!category).toBe(true);
+
+  const rows = await db.table('product_category').select('*', {
+    where: { product: { id_in: [products[0].id, products[1].id] }, category }
+  });
+
+  expect(rows.length).toBe(2);
+
+  done();
+});

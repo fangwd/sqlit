@@ -1,6 +1,6 @@
 import { Document, Table } from './database';
 import { Record } from './record';
-import { SimpleField, ForeignKeyField, RelatedField } from './model';
+import { ForeignKeyField, RelatedField, Field, SimpleField } from './model';
 
 export interface RecordConfig {
   [key: string]: string;
@@ -15,31 +15,51 @@ function append(
   const db = table.db;
   const model = table.model;
   const row = table.append();
+  const defaultMap: Map<Record, Document> = new Map();
+  const rowMap: Map<string, Record> = new Map();
+
   for (const key in data) {
     const value = data[key];
+
     if (key in config) {
-      const field = model.field(config[key]);
-      if (field) {
-        // "categoryName": "name"
+      const setField = selector => {
+        let _model = model;
+        let _row = row;
+        let _defaults = defaults;
+
+        const names = selector.split('.');
+
+        for (let i = 0; i < names.length - 1; i++) {
+          _defaults = _defaults && (_defaults[names[i]] as Document);
+          const path = names.slice(0, i + 1).join('.');
+          const row = rowMap.get(path);
+          if (row) {
+            _row = row;
+          } else {
+            _row = getRecordField(_row, _model.field(names[i]));
+            rowMap.set(path, _row);
+            if (_model.field(names[i]) instanceof RelatedField && _defaults) {
+              defaultMap.set(_row, _defaults);
+            }
+          }
+          _model = _row.__table.model;
+        }
+
+        const field = _model.field(names[names.length - 1]);
+
         if (field instanceof ForeignKeyField) {
-          row[field.name] = value || null;
-        } else if (field instanceof SimpleField) {
-          row[field.name] = value;
+          _row[names[names.length - 1]] = value || null;
+        } else {
+          _row[names[names.length - 1]] = value;
+        }
+      };
+
+      if (Array.isArray(config[key])) {
+        for (const name of config[key]) {
+          setField(name);
         }
       } else {
-        // "parent_parent_name": "parent.parent.name"
-        const names = config[key].split('.');
-        let m = model;
-        let r = row;
-        for (let i = 0; i < names.length - 1; i++) {
-          const field = m.field(names[i]) as ForeignKeyField;
-          if (!r[field.name]) {
-            r[field.name] = db.table(field.referencedField).append();
-          }
-          m = field.referencedField.model;
-          r = r[field.name];
-        }
-        r[names[names.length - 1]] = value || null;
+        setField(config[key]);
       }
     } else {
       // "*": "categoryAttributes[name,value]"
@@ -59,15 +79,46 @@ function append(
 
   if (defaults) {
     setDefaults(row, defaults);
+    defaultMap.forEach((defaults, row) => {
+      setDefaults(row, defaults);
+    });
   }
 
   return row;
 }
 
-function setDefaults(row: Record, values: Document) {
-  for (const name in values) {
+function getRecordField(row: Record, field: Field): Record {
+  const db = row.__table.db;
+
+  if (field instanceof ForeignKeyField) {
+    if (!row[field.name]) {
+      row[field.name] = db.table(field.referencedField).append();
+    }
+    return row[field.name];
+  } else if (field instanceof RelatedField) {
+    if (field.throughField) {
+      const record = db
+        .table(field.throughField.referencedField.model)
+        .append();
+      const bridge = db.table(field.referencingField.model).append();
+      bridge[field.referencingField.name] = row;
+      bridge[field.throughField.name] = record;
+      return record;
+    } else {
+      const table = db.table(field.referencingField.model);
+      const record = table.append();
+      record[field.referencingField.name] = row;
+      return record;
+    }
+  }
+
+  throw Error(`Invalid field: ${field && field.displayName()}`);
+}
+
+function setDefaults(row: Record, defaults: Document) {
+  for (const name in defaults) {
     const field = row.__table.model.field(name);
-    const value = values[name];
+    const value = defaults[name];
 
     if (field instanceof ForeignKeyField) {
       if (row[name] === undefined) {
@@ -82,7 +133,7 @@ function setDefaults(row: Record, values: Document) {
       } else {
         row[name].__setPrimaryKey(value);
       }
-    } else {
+    } else if (field instanceof SimpleField) {
       if (row[name] === undefined) {
         row[name] = value;
       }
