@@ -260,3 +260,31 @@ test('load many to many', async done => {
 
   done();
 });
+
+test('select related', async done => {
+  const db = helper.connectToDatabase(NAME);
+  const table = db.table('order');
+
+  const rows = await table.select({
+    user: { orders: { fields: { code: 'code' } } },
+
+    orderItems: {
+      fields: {
+        id: 'id',
+        product: {
+          name: 'name',
+          categories: {
+            fields: '*'
+          }
+        }
+      }
+    }
+  });
+
+  // In the test data we only have 2 orders for the same user:
+  expect(rows.length).toBe(2);
+  expect(rows[0].user.orders.length).toBe(2);
+  expect(rows[0].orderItems[0].product.categories.length).toBeGreaterThan(0);
+
+  done();
+});
