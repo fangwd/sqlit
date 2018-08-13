@@ -242,54 +242,77 @@ export class Table {
     filterThunk?: (builder: QueryBuilder) => string
   ): Promise<Row[]> {
     return this.db.pool.getConnection().then(connection =>
-      this._select(connection, fields, options, filterThunk).then(result => {
-        if (typeof fields === 'string' || fields instanceof SimpleField) {
+      this._select(connection, fields, options, filterThunk).then(result =>
+        this._resolveRelatedFields(connection, result, fields).then(result => {
           connection.release();
-          return result;
-        } else {
-          const pk = this.model.keyField().name;
-          const values = result.map(row => this.model.valueOf(row, pk));
-          const promises = [];
-
-          for (const name in fields) {
-            const field = this.model.field(name);
-            const value = fields[name];
-
-            if (field instanceof RelatedField && value) {
-              let options, fields;
-              if (typeof value !== 'object') {
-                options = {};
-              } else {
-                options = Object.assign({}, value);
-                if (options.fields) {
-                  fields = options.fields;
-                  delete options.fields;
-                } else {
-                  fields = '*';
-                }
-              }
-
-              const promise = this._selectRelated(
-                field,
-                values,
-                fields,
-                options
-              ).then(rows => {
-                result.forEach((entry, index) => {
-                  entry[name] = rows[index];
-                });
-              });
-
-              promises.push(promise);
-            }
-          }
-          return Promise.all(promises).then(() => {
-            connection.release();
-            return result;
-          });
-        }
-      })
+          return result as Row[];
+        })
+      )
     );
+  }
+
+  _resolveRelatedFields(
+    connection: Connection,
+    result: Document[],
+    fields: string | Document
+  ): Promise<Document[]> {
+    if (typeof fields === 'string' || fields instanceof SimpleField) {
+      return Promise.resolve(result);
+    }
+
+    const pk = this.model.keyField().name;
+    const values = result.map(row => this.model.valueOf(row, pk));
+    const promises = [];
+
+    for (const name in fields) {
+      const field = this.model.field(name);
+      const value = fields[name];
+
+      if (field instanceof RelatedField && value) {
+        let options, fields;
+        if (typeof value !== 'object') {
+          options = {};
+        } else {
+          options = Object.assign({}, value);
+          if (options.fields) {
+            fields = options.fields;
+            delete options.fields;
+          } else {
+            fields = '*';
+          }
+        }
+
+        const promise = this._selectRelated(
+          field,
+          values,
+          fields,
+          options
+        ).then(rows => {
+          result.forEach((entry, index) => {
+            entry[name] = rows[index];
+          });
+        });
+
+        promises.push(promise);
+      }
+    }
+
+    return Promise.all(promises).then(() => {
+      const promises = [];
+      for (const name in fields) {
+        const field = this.model.field(name);
+        const value = fields[name] as Document;
+        if (field instanceof ForeignKeyField && value) {
+          const rows: Document[] = result.map(
+            row => row[field.name] as Document
+          );
+          const table = this.db.table(field.referencedField.model);
+          const promise = table._resolveRelatedFields(connection, rows, value);
+          promises.push(promise);
+        }
+      }
+      return Promise.all(promises).then(() => result);
+    });
   }
 
   get(key: Value | Filter): Promise<Document> {
