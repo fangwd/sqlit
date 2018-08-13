@@ -1,4 +1,4 @@
-import { Document, Table } from './database';
+import { Document, Table, Filter } from './database';
 import { Record } from './record';
 import { ForeignKeyField, RelatedField, Field, SimpleField } from './model';
 
@@ -63,6 +63,9 @@ function append(
       }
     } else {
       // "*": "categoryAttributes[name,value]"
+      if (!config['*']) {
+        throw Error(`Unknown field: ${key}`);
+      }
       const option = parseRelatedOption(config['*']);
       const field = model.field(option.name);
       if (field instanceof RelatedField) {
