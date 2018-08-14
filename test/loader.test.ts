@@ -221,6 +221,7 @@ test('load many to many', async done => {
   const config = {
     sku: 'sku',
     name: 'name',
+    price: 'price',
     category: 'categories.name'
   };
 
@@ -228,11 +229,13 @@ test('load many to many', async done => {
     {
       sku: 'prod-1',
       name: 'Product 1',
+      price: 10,
       category: 'Fancy'
     },
     {
       sku: 'prod-2',
       name: 'Product 2',
+      price: 20,
       category: 'Fancy'
     }
   ];
@@ -285,6 +288,69 @@ test('select related', async done => {
   expect(rows.length).toBe(2);
   expect(rows[0].user.orders.length).toBe(2);
   expect(rows[0].orderItems[0].product.categories.length).toBeGreaterThan(0);
+
+  done();
+});
+
+test('select rows', async done => {
+  const db = helper.connectToDatabase(NAME);
+  const table = db.table('category');
+
+  const count = await db.table('product_category').count();
+
+  const config = {
+    name: 'name',
+    parent_name: 'parent.name',
+    product_name: 'products.name',
+    product_price: 'products.price'
+  };
+
+  const docs = await table.xselect(config);
+
+  expect(docs.length).toBe(count);
+  expect(!!docs[count - 1].parent_name).toBe(true);
+  expect(docs[count - 1].product_price).toBeGreaterThan(0);
+
+  done();
+});
+
+test('select rows with attributes', async done => {
+  const db = helper.connectToDatabase(NAME);
+  const table = db.table('category');
+
+  const count = await db.table('product_category').count();
+
+  const rows = await table.select('*');
+
+  for (const r of rows) {
+    db.table('category_attribute').append({
+      category: r.id,
+      name: 'my-id',
+      value: r.id
+    });
+    db.table('category_attribute').append({
+      category: r.id,
+      name: 'my-name',
+      value: r.name
+    });
+  }
+
+  await db.flush();
+
+  db.clear();
+
+  const config = {
+    name: 'name',
+    parent_name: 'parent.name',
+    product_name: 'products.name',
+    product_price: 'products.price',
+    '*': 'categoryAttributes[name, value]'
+  };
+
+  const docs = await table.xselect(config);
+
+  expect(docs.length).toBe(count);
+  expect(docs[count - 1]['my-name']).toBe(docs[count - 1].name);
 
   done();
 });

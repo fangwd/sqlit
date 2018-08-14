@@ -1,8 +1,13 @@
 import { Value, ConnectionInfo, createConnectionPool } from './engine';
-
 import { flushDatabase } from './flush';
 import { RecordProxy, Record, getModel } from './record';
-import { loadTable, RecordConfig } from './loader';
+import {
+  loadTable,
+  RecordConfig,
+  recordConfigToDocument,
+  mapDocument,
+  parseRelatedOption
+} from './loader';
 import {
   Schema,
   Model,
@@ -13,7 +18,6 @@ import {
   ColumnInfo,
   SchemaConfig
 } from './model';
-
 import {
   Connection,
   ConnectionPool,
@@ -259,7 +263,6 @@ export class Table {
     if (typeof fields === 'string' || fields instanceof SimpleField) {
       return Promise.resolve(result);
     }
-
     const pk = this.model.keyField().name;
     const values = result.map(row => this.model.valueOf(row, pk));
     const promises = [];
@@ -281,7 +284,6 @@ export class Table {
             fields = '*';
           }
         }
-
         const promise = this._selectRelated(
           field,
           values,
@@ -1234,6 +1236,55 @@ export class Table {
     defaults?: Document
   ): Promise<any> {
     return loadTable(this, data, config, defaults);
+  }
+
+  xselect(
+    config: RecordConfig,
+    options: SelectOptions = {}
+  ): Promise<Document[]> {
+    config = { ...config };
+
+    let attrs;
+    if (config['*']) {
+      attrs = config['*'];
+      delete config['*'];
+    }
+
+    const fields = recordConfigToDocument(this, config);
+
+    return this.select(fields, options).then(docs => {
+      if (attrs) {
+        const options = parseRelatedOption(attrs);
+        const table = this.db.table(
+          (this.model.field(options.name) as RelatedField).referencingField
+            .model
+        );
+        const range = docs.map(doc => this.model.keyValue(doc));
+        const field = table.model.getForeignKeyOf(this.model);
+        return table
+          .select('*', { where: { [field.name]: range } })
+          .then(rows => {
+            const result = [];
+            for (const doc of docs) {
+              const kv = this.model.keyValue(doc);
+              const rs = (rows as Document[]).filter(
+                row => this.model.keyValue(row[field.name] as Document) === kv
+              );
+              for (const d of mapDocument(doc, config)) {
+                for (const r of rs) {
+                  const name = r[options.key] as string;
+                  const value = r[options.value];
+                  d[name] = value;
+                }
+                result.push(d);
+              }
+            }
+            return result;
+          });
+      } else {
+        return [].concat.apply([], docs.map(doc => mapDocument(doc, config)));
+      }
+    });
   }
 }
 
