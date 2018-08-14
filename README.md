@@ -1,4 +1,4 @@
-_sqlit_ is a library to help retrieve, update, import and export data from a relational database easily. Apart from standard database relations like one-to-one, many-to-one and many-to-many, it also has built-in support for hierarchical data (trees) using closure tables, including cloning a tree rooted with a specific object.
+_sqlit_ is a library to help retrieve, update, import and export data from a relational database easily. Apart from standard database relations like one-to-one, many-to-one and many-to-many, it also has built-in support for hierarchical data (trees) using closure tables, including cloning a tree rooted at a specific object.
 
 # Installation
 
@@ -33,7 +33,7 @@ Now the database instance is ready for use. Let's play with some data.
 
 ## Making queries
 
-Select the 2nd 10 products ordered by their name:
+Select the 2nd 10 products ordered by their names:
 
 ```js
 const db = helper.connectToDatabase(NAME);
