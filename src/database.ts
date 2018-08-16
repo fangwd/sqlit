@@ -1230,7 +1230,7 @@ export class Table {
   }
 
   // It is strongly recommended to call db.clear() before calling this method!
-  load(
+  xappend(
     data: Document | Document[],
     config: RecordConfig,
     defaults?: Document

@@ -41,7 +41,7 @@ test('load rows', async done => {
     }
   ];
 
-  await table.load(data, config.category);
+  await table.xappend(data, config.category);
 
   expect(table.recordList.length).toBe(5);
 
@@ -83,7 +83,7 @@ test('load attributes', async done => {
     }
   ];
 
-  await table.load(data, config.category);
+  await table.xappend(data, config.category);
 
   const rows = await db.table('category_attribute').select('*', {
     where: { category: { name: 'Example B1' } },
@@ -126,7 +126,7 @@ test('load with defaults', async done => {
       }
     ];
 
-    await table.load(data, config.category, { parent: null });
+    await table.xappend(data, config.category, { parent: null });
 
     const rows = await db.table('category_attribute').select('*', {
       where: { category: { name: 'Example C1' } },
@@ -156,7 +156,7 @@ test('load with defaults', async done => {
       }
     ];
 
-    await table.load(data, config.category, { parent: 1 });
+    await table.xappend(data, config.category, { parent: 1 });
 
     const category = (await db.table('category').select('*', {
       where: { name: 'Example C2' }
@@ -172,7 +172,7 @@ test('load with defaults', async done => {
       }
     ];
 
-    await table.load(data, config.category, { parent: { id: 2 } });
+    await table.xappend(data, config.category, { parent: { id: 2 } });
 
     const category = (await db.table('category').select('*', {
       where: { name: 'Example C3' }
@@ -196,7 +196,9 @@ test('load with defaults', async done => {
       }
     ];
 
-    await table.load(data, config.category, { parent: { parent: { id: 3 } } });
+    await table.xappend(data, config.category, {
+      parent: { parent: { id: 3 } }
+    });
 
     const category = (await db.table('category').select('*', {
       where: { name: 'Random 4' }
@@ -240,7 +242,7 @@ test('load many to many', async done => {
     }
   ];
 
-  await table.load(data, config, { categories: { parent: 1 } });
+  await table.xappend(data, config, { categories: { parent: 1 } });
 
   const products = await db.table('product').select('*', {
     where: { sku_like: 'prod-%' },
