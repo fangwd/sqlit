@@ -70,10 +70,29 @@ function append(
       const field = model.field(option.name);
       if (field instanceof RelatedField) {
         const table = db.table(field.referencingField.model);
-        const record = table.append();
+        let record = table.append();
         record[field.referencingField.name] = row;
-        record[option.key] = key;
-        record[option.value] = value;
+
+        if (option.value) {
+          record[option.key] = key;
+          record[option.value] = value;
+        } else {
+          if (!field.throughField) {
+            record[option.key] = value;
+          } else {
+            const referencedField = field.throughField.referencedField;
+            const referencedTable = db.table(referencedField.model);
+            const referencedRecord = referencedTable.append();
+            referencedRecord[option.key] = value;
+            record[field.throughField.name] = referencedRecord;
+            record = referencedRecord;
+          }
+        }
+
+        const _defaults = defaults && (defaults[field.name] as Document);
+        if (_defaults) {
+          setDefaults(record, _defaults);
+        }
       } else {
         throw Error(`Invalid field: ${model.name}.${key}`);
       }
@@ -153,7 +172,7 @@ export function parseRelatedOption(spec: string) {
     return {
       name,
       key: parts[0].trim(),
-      value: parts[1].trim()
+      value: parts[1] && parts[1].trim()
     };
   }
 

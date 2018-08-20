@@ -216,7 +216,7 @@ test('load with defaults', async done => {
   done();
 });
 
-test('load many to many', async done => {
+test('load many to many #1', async done => {
   const db = helper.connectToDatabase(NAME);
   const table = db.table('product');
 
@@ -353,6 +353,123 @@ test('select rows with attributes', async done => {
 
   expect(docs.length).toBe(count);
   expect(docs[count - 1]['my-name']).toBe(docs[count - 1].name);
+
+  done();
+});
+
+test('load many to many #2', async done => {
+  const db = helper.connectToDatabase(NAME);
+  const table = db.table('user');
+
+  const config = {
+    email: 'email',
+    '*': 'orders[code]'
+  };
+
+  const data = [
+    {
+      email: 'test-user-1',
+      x1: 'test-order-1',
+      x2: 'test-order-2'
+    },
+    {
+      email: 'test-user-2',
+      x1: 'test-order-3'
+    }
+  ];
+
+  await table.xappend(data, config, { orders: { status: 300 } });
+
+  const users = await table.select('*', {
+    where: { email_like: 'test-user-%' },
+    orderBy: ['email']
+  });
+
+  expect(users.length).toBe(2);
+  expect(users[0].email).toBe('test-user-1');
+  expect(users[1].email).toBe('test-user-2');
+
+  const rows = await db.table('order').select('*', {
+    where: { code_like: 'test-order-%' },
+    orderBy: ['code']
+  });
+
+  expect(rows.length).toBe(3);
+
+  expect(rows[0].user.id).toBe(users[0].id);
+  expect(rows[1].user.id).toBe(users[0].id);
+  expect(rows[2].user.id).toBe(users[1].id);
+
+  for (const r of rows) {
+    expect(r.status).toBe(300);
+  }
+
+  done();
+});
+
+test('load many to many #3', async done => {
+  const db = helper.connectToDatabase(NAME);
+  const table = db.table('product');
+
+  const config = {
+    sku: 'sku',
+    '*': 'categories[name]'
+  };
+
+  const data = [
+    {
+      sku: 'fancy-1',
+      x1: 'New category #1',
+      x2: 'Fruit'
+    },
+    {
+      sku: 'fancy-2',
+      x1: 'New category #2',
+      x2: 'Apple'
+    }
+  ];
+
+  await table.xappend(data, config, { categories: { parent: 1 } });
+
+  const products = await table.select('*', {
+    where: { sku_like: 'fancy-%' },
+    orderBy: ['sku']
+  });
+
+  expect(products.length).toBe(2);
+  expect(products[0].sku).toBe('fancy-1');
+  expect(products[1].sku).toBe('fancy-2');
+
+  const rows = await db.table('product_category').select('*', {
+    where: { product: { id_in: [products[0].id, products[1].id] } }
+  });
+
+  expect(rows.length).toBe(4);
+
+  const ids = rows.map(row => row.category.id);
+
+  {
+    const rows = await db.table('category').select('*', {
+      where: { id: ids },
+      orderBy: ['name']
+    });
+
+    const names = ['Apple', 'Fruit', 'New category #1', 'New category #2'];
+
+    for (let i = 0; i < rows.length; i++) {
+      expect(rows[i].name).toBe(names[i]);
+      expect(rows[i].parent.id).toBe(1);
+    }
+  }
+
+  {
+    const rows = await db.table('category').select('*', {
+      where: { name: 'Apple' },
+      orderBy: ['name', 'parent.id']
+    });
+    expect(rows[0].parent.id).toBe(1);
+    expect(rows[1].parent.id).toBeGreaterThan(1);
+  }
 
   done();
 });
