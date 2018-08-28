@@ -164,7 +164,7 @@ export class Model {
   }
 
   keyField(): SimpleField {
-    return this.primaryKey.fields.length === 1
+    return this.primaryKey && this.primaryKey.fields.length === 1
       ? this.primaryKey.fields[0]
       : null;
   }
