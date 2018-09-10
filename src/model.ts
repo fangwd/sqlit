@@ -193,7 +193,11 @@ export class Model {
 
     let uniqueKey = this.primaryKey;
     for (const field of uniqueKey.fields) {
-      if (reject(row[field.name])) {
+      let value = row[field.name];
+      if (value === undefined) {
+        value = [field.name + '__in'];
+      }
+      if (reject(value)) {
         uniqueKey = null;
         break;
       }
