@@ -463,8 +463,8 @@ export class Table {
 
     for (const name in filter) {
       if (name in data) {
-        const lhs = data[name];
-        const rhs = filter[name];
+        const lhs = this.model.valueOf(data, name);
+        const rhs = this.model.valueOf(filter as Document, name);
         if (lhs === null) {
           if (rhs === null) {
             delete data[name];
