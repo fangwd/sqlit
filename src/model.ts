@@ -195,7 +195,7 @@ export class Model {
     for (const field of uniqueKey.fields) {
       let value = row[field.name];
       if (value === undefined) {
-        value = [field.name + '__in'];
+        value = row[field.name + '__in'];
       }
       if (reject(value)) {
         uniqueKey = null;
