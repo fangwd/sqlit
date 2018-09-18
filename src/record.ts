@@ -216,7 +216,7 @@ export class Record {
     for (const field of uc.fields) {
       let value = this.__getValue(field.name);
       if (value === undefined) return undefined;
-      values.push(value);
+      values.push(value + '');
     }
     return JSON.stringify(values).toLocaleLowerCase();
   }
