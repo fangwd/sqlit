@@ -9,143 +9,176 @@ export function getInformationSchema(
 }
 
 class Builder {
-  constructor(public connection: Connection, public schemaName: string) {}
+  connection: Connection;
+  schemaName: string;
+  escapedSchemaName: string;
+
+  constructor(connection: Connection, schemaName: string) {
+    this.connection = connection;
+    this.schemaName = schemaName;
+    this.escapedSchemaName = connection.escape(schemaName);
+  }
 
   getResult(): Promise<SchemaInfo> {
-    return this.getTables().then(tables => {
-      const result = {
+    return Promise.all([
+      this.getTables(),
+      this.getColumns(),
+      this.getTableConstraints(),
+      this.getKeyColumnUsage()
+    ]).then(result => {
+      const [
+        tableSet,
+        tableColumnsMap,
+        tableConstraintMap,
+        tableConstraintColumnsMap
+      ] = result;
+
+      const schemaInfo = {
         name: this.schemaName,
-        tables
+        tables: []
       };
 
-      const promises = [];
-      for (const table of tables) {
-        promises.push(this.getColumns(table));
-        promises.push(this.getConstraints(table));
-      }
+      for (const tableName in tableColumnsMap) {
+        if (!tableSet.has(tableName)) continue;
+        const tableInfo: TableInfo = {
+          name: tableName,
+          columns: tableColumnsMap[tableName],
+          constraints: []
+        };
 
-      return Promise.all(promises).then(() => result);
-    });
-  }
-
-  getTables(): Promise<any> {
-    return this.connection
-      .query(
-        `SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = '${
-          this.schemaName
-        }' AND TABLE_TYPE='BASE TABLE'`
-      )
-      .then(rows => {
-        const tables: TableInfo[] = [];
-        for (const row of rows) {
-          tables.push({
-            name: row.TABLE_NAME,
-            columns: [],
-            constraints: []
-          });
-        }
-        return tables;
-      });
-  }
-
-  getColumns(table: TableInfo) {
-    return this.connection
-      .query(
-        `SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = '${
-          this.schemaName
-        }' AND TABLE_NAME = '${table.name}'`
-      )
-      .then(rows => {
-        for (const row of rows) {
-          const column: ColumnInfo = {
-            name: row.COLUMN_NAME,
-            type: row.DATA_TYPE,
-            nullable: row.IS_NULLABLE === 'YES'
-          };
-          if (/char|text/i.exec(column.type)) {
-            column.size = row.CHARACTER_MAXIMUM_LENGTH;
-          }
-          if (/auto_increment/i.exec(row.EXTRA)) {
-            column.autoIncrement = true;
-          }
-          table.columns.push(column);
-        }
-      });
-  }
-
-  getConstraints(table: TableInfo) {
-    return this.connection
-      .query(
-        `SELECT * FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS WHERE TABLE_SCHEMA = '${
-          this.schemaName
-        }' AND TABLE_NAME = '${table.name}'`
-      )
-      .then(rows => {
-        const promises = [];
-        for (const row of rows) {
+        for (const constraintName in tableConstraintMap[tableName]) {
+          const type = tableConstraintMap[tableName][constraintName];
+          const columns = tableConstraintColumnsMap[tableName][constraintName];
           const constraint: ConstraintInfo = {
-            name: row.CONSTRAINT_NAME,
-            columns: []
+            name: constraintName,
+            columns: columns.map(entry => entry[0])
           };
-          switch (row.CONSTRAINT_TYPE) {
+          switch (type) {
             case 'PRIMARY KEY':
               constraint.primaryKey = true;
-              promises.push(this.getConstraintsColumns(table.name, constraint));
               break;
             case 'UNIQUE':
               constraint.unique = true;
-              promises.push(this.getConstraintsColumns(table.name, constraint));
               break;
             case 'FOREIGN KEY':
-              promises.push(this.getConstraintsColumns(table.name, constraint));
+              constraint.references = {
+                table: columns[0][1][0],
+                columns: columns.map(entry => entry[1][1])
+              };
               break;
           }
-          table.constraints.push(constraint);
+          tableInfo.constraints.push(constraint);
         }
-        return Promise.all(promises).then(() => {
-          const promises = [];
-          for (const row of rows) {
-            if (row.CONSTRAINT_TYPE === 'FOREIGN KEY') {
-              const index = table.constraints.find(
-                index => index.name === row.CONSTRAINT_NAME
-              );
-              promises.push(this.getReferentialConstraints(table, index));
-            }
-          }
-          return Promise.all(promises);
-        });
+        schemaInfo.tables.push(tableInfo);
+      }
+
+      return schemaInfo;
+    });
+  }
+
+  getTables(): Promise<Set<string>> {
+    return this.connection
+      .query(
+        `
+        select table_name from information_schema.tables
+        where table_schema = ${
+          this.escapedSchemaName
+        } and table_type = 'BASE TABLE'
+        `
+      )
+      .then(rows => {
+        const set = new Set();
+        for (const row of rows) {
+          set.add(row.table_name);
+        }
+        return set;
       });
   }
 
-  getConstraintsColumns(tableName: string, index: ConstraintInfo) {
-    const query = `SELECT * FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA='${
-      this.schemaName
-    }' AND TABLE_NAME='${tableName}' AND  CONSTRAINT_NAME='${
-      index.name
-    }' ORDER BY ORDINAL_POSITION`;
-    return this.connection.query(query).then(rows => {
-      for (const row of rows) {
-        index.columns.push(row.COLUMN_NAME);
-      }
-    });
+  getColumns(): Promise<{ [key: string]: ColumnInfo[] }> {
+    return this.connection
+      .query(
+        `
+        select table_name, column_name, ordinal_position, column_default,
+        is_nullable, data_type, character_maximum_length, extra
+        from information_schema.columns
+        where table_schema = ${this.escapedSchemaName}`
+      )
+      .then(rows => {
+        const map = {};
+        for (const row of rows) {
+          map[row.table_name] = map[row.table_name] || [];
+          const columnInfo: ColumnInfo = {
+            name: row.column_name,
+            type: row.data_type,
+            nullable: row.is_nullable === 'YES'
+          };
+          if (/char|text/i.exec(columnInfo.type)) {
+            columnInfo.size = row.character_maximum_length;
+          }
+          if (/auto_increment/i.exec(row.extra)) {
+            columnInfo.autoIncrement = true;
+          }
+          map[row.table_name].push([row.ordinal_position, columnInfo]);
+        }
+        for (const tableName in map) {
+          const columns = map[tableName];
+          map[tableName] = columns.sort((a, b) => a[0] - b[0]).map(r => r[1]);
+        }
+        return map;
+      });
   }
 
-  getReferentialConstraints(table: TableInfo, index: ConstraintInfo) {
-    const query = `SELECT * FROM INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS WHERE CONSTRAINT_SCHEMA = '${
-      this.schemaName
-    }' AND TABLE_NAME='${table.name}' AND CONSTRAINT_NAME='${index.name}'`;
-    return this.connection.query(query).then(rows => {
-      if (rows.length !== 1) throw Error('Unexpected result!');
-      const row = rows[0];
-      index.references = {
-        name: row.UNIQUE_CONSTRAINT_NAME,
-        table: row.REFERENCED_TABLE_NAME,
-        columns: []
-      };
-      return this.getConstraintsColumns(
-        index.references.table,
-        index.references
-      );
-    });
+  // table_name => constraint_name => constraint_type
+  getTableConstraints(): Promise<{ [key: string]: { [key: string]: string } }> {
+    return this.connection
+      .query(
+        `
+        select table_name, constraint_name, constraint_type
+        from information_schema.table_constraints
+        where table_schema = ${this.escapedSchemaName}`
+      )
+      .then(rows => {
+        const map = {};
+        for (const row of rows) {
+          map[row.table_name] = map[row.table_name] || {};
+          map[row.table_name][row.constraint_name] = row.constraint_type;
+        }
+        return map;
+      });
+  }
+
+  // table_name => constraint_name => column_name[]
+  getKeyColumnUsage(): Promise<{ [key: string]: { [key: string]: string[] } }> {
+    return this.connection
+      .query(
+        `
+        select table_name, constraint_name, column_name, ordinal_position,
+        referenced_table_name, referenced_column_name
+        from information_schema.key_column_usage
+        where table_schema = ${this.escapedSchemaName}`
+      )
+      .then(rows => {
+        const map = {};
+        for (const row of rows) {
+          map[row.table_name] = map[row.table_name] || {};
+          map[row.table_name][row.constraint_name] =
+            map[row.table_name][row.constraint_name] || [];
+          map[row.table_name][row.constraint_name].push([
+            row.ordinal_position,
+            row.column_name,
+            [row.referenced_table_name, row.referenced_column_name]
+          ]);
+        }
+        for (const tableName in map) {
+          for (const constraintName in map[tableName]) {
+            const columns = map[tableName][constraintName];
+            map[tableName][constraintName] = columns
+              .sort((a, b) => a[0] - b[0])
+              .map(r => [r[1], r[2]]);
+          }
+        }
+        return map;
+      });
   }
 }
