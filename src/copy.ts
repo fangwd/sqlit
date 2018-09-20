@@ -136,6 +136,10 @@ function append(table: Table, row: Document) {
       const key = referencedTable.model.keyField();
       const value = referencedTable.model.keyValue(row[field.name] as Document);
       const referencedRecord = referencedTable.append({ [key.name]: value });
+      if (record[field.name] !== undefined) {
+        // No reassignment
+        delete record.__data[field.name];
+      }
       referencedRecord.__remove_dirty(key.name);
       record[field.name] = referencedRecord;
     } else if (field instanceof SimpleField && field !== key) {
