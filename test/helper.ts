@@ -144,3 +144,7 @@ export function getId(length: number = 8) {
     .toString(36)
     .substring(length);
 }
+
+export function getDatabaseName(name: string): string {
+  return `${DB_NAME}_${name}`;
+}
