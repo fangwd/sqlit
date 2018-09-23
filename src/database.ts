@@ -395,8 +395,14 @@ export class Table {
     });
   }
 
-  count(filter?: Filter): Promise<number> {
-    let sql = `select count(1) as result from ${this._name()}`;
+  count(filter?: Filter, expr?: string): Promise<number> {
+    let sql;
+
+    if (expr) {
+      sql = `select count(${expr}) as result from ${this._name()}`;
+    } else {
+      sql = `select count(1) as result from ${this._name()}`;
+    }
 
     if (filter) {
       sql += ` where ${this._where(filter)}`;
