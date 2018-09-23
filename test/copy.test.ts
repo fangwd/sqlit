@@ -12,9 +12,10 @@ test('copy', async done => {
   const order = db.getModels().Order({ id: 1 });
   await order.copy({ code: 'order-1-copy' });
   db.table('order')
-    .select('*', { where: { code: 'order-1-copy' } })
+    .select({ orderItems: '*'} , { where: { code: 'order-1-copy' } })
     .then(rows => {
       expect(rows.length).toBe(1);
+      expect(rows[0].orderItems.length).toBe(2);
       done();
     });
 });
