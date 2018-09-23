@@ -251,7 +251,7 @@ export function recordConfigToDocument(
 
 export function mapDocument(doc: Document, config: RecordConfig): Document[] {
   const result = [];
-  for (const entry of flattern(doc)) {
+  for (const entry of flatten(doc)) {
     const item = {};
     for (const name in config) {
       const path = Array.isArray(config[name]) ? config[name][0] : config[name];
@@ -264,28 +264,32 @@ export function mapDocument(doc: Document, config: RecordConfig): Document[] {
   return result;
 }
 
-function flattern(doc: Document) {
+function flatten(doc: Document) {
   let result = [{}];
 
   for (const name in doc) {
     const value = doc[name];
     if (Array.isArray(value)) {
       const next = [];
-      for (const val of value) {
-        const docs = flattern(val as Document);
-        for (const doc of docs) {
-          for (const res of result) {
-            const ent = { ...res };
-            for (const key in doc) {
-              ent[`${name}.${key}`] = doc[key];
+      if (value.length > 0) {
+        for (const val of value) {
+          const docs = flatten(val as Document);
+          for (const doc of docs) {
+            for (const res of result) {
+              const ent = { ...res };
+              for (const key in doc) {
+                ent[`${name}.${key}`] = doc[key];
+              }
+              next.push(ent);
             }
-            next.push(ent);
           }
         }
+        result = next;
+      } else {
+        // Keep
       }
-      result = next;
     } else if (value && typeof value === 'object' && !(value instanceof Date)) {
-      const docs = flattern(value as Document);
+      const docs = flatten(value as Document);
       const next = [];
       for (const doc of docs) {
         for (const res of result) {

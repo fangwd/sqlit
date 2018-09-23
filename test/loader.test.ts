@@ -1,4 +1,5 @@
 import helper = require('./helper');
+import { Database } from '../src/database';
 
 const NAME = 'loader';
 
@@ -298,7 +299,7 @@ test('select rows', async done => {
   const db = helper.connectToDatabase(NAME);
   const table = db.table('category');
 
-  const count = await db.table('product_category').count();
+  const count = await getCategoryWithProductsRowCount(db);
 
   const config = {
     name: 'name',
@@ -320,7 +321,7 @@ test('select rows with attributes', async done => {
   const db = helper.connectToDatabase(NAME);
   const table = db.table('category');
 
-  const count = await db.table('product_category').count();
+  const count = await getCategoryWithProductsRowCount(db);
 
   const rows = await table.select('*');
 
@@ -473,3 +474,11 @@ test('load many to many #3', async done => {
 
   done();
 });
+
+async function getCategoryWithProductsRowCount(db: Database) {
+  const m = await db.table('product_category').count();
+  const n = await db
+    .table('product_category')
+    .count(null, 'distinct(category_id)');
+  return (await db.table('category').count()) + m - n;
+}
