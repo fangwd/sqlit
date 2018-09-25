@@ -21,6 +21,8 @@ function append(
   for (const key in data) {
     const value = data[key];
 
+    if (value === undefined) continue;
+
     if (key in config) {
       const setField = selector => {
         let _model = model;
