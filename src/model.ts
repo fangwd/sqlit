@@ -174,6 +174,7 @@ export class Model {
   }
 
   valueOf(row: Document, name: string | SimpleField): Value {
+    if (!row) return undefined;
     const field = typeof name === 'string' ? this.field(name) : name;
     let value = row[field.name];
     if (field instanceof ForeignKeyField) {

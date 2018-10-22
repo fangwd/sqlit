@@ -77,7 +77,7 @@ export class Database {
     return new Promise(resolve =>
       this.pool.getConnection().then(connection =>
         getInformationSchema(connection, this.name).then(schemaInfo => {
-          const schema = new Schema(schemaInfo);
+          const schema = new Schema(schemaInfo, config);
           this.setSchema(schema);
           resolve(schema);
         })
@@ -1340,6 +1340,23 @@ export function toRow(value: Value, field: SimpleField): Value {
   return value;
 }
 
+function setNullForeignKeys(result: Document, model: Model): Document {
+  if (model.keyValue(result) === null) {
+    return null;
+  }
+
+  for (const field of model.fields) {
+    if (field instanceof ForeignKeyField && result[field.name]) {
+      result[field.name] = setNullForeignKeys(
+        result[field.name] as Document,
+        field.referencedField.model
+      );
+    }
+  }
+
+  return result;
+}
+
 export function toDocument(row: Row, model: Model, fieldMap = {}): Document {
   const result = {};
 
@@ -1384,7 +1401,7 @@ export function toDocument(row: Row, model: Model, fieldMap = {}): Document {
     }
   }
 
-  return result;
+  return setNullForeignKeys(result, model);
 }
 
 export function isEmpty(value: Value | Record | any) {
