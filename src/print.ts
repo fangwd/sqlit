@@ -44,6 +44,10 @@ function getTypeName(name: string) {
     return 'Date';
   }
 
+  if (/char|text|string/i.test(name)) {
+    return 'string';
+  }
+
   if (/int|long/i.test(name)) {
     return 'number';
   }
@@ -54,10 +58,6 @@ function getTypeName(name: string) {
 
   if (/^bool/i.test(name)) {
     return 'boolean';
-  }
-
-  if (/char|text/i.test(name)) {
-    return 'string';
   }
 
   throw Error(`Unknown type '${name}'`);
