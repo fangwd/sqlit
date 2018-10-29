@@ -756,7 +756,6 @@ export class Table {
     if (!field) throw Error(`Bad field ${related.displayName()}`);
     const table = this.db.table(field.model);
     if (!data || field.model.keyValue(data) === null) {
-      const nullable = field.column.nullable;
       if (field.column.nullable) {
         return table._update(
           connection,
@@ -1215,7 +1214,7 @@ export class Table {
         const id = field.referencingField.model.keyField().name;
         if (field.referencingField.isUnique()) {
           return values.map(key => {
-            const row = rows.find(row => row[name][id] === key);
+            const row = rows.find(row => row[name] && row[name][id] === key);
             if (row) {
               delete row[name];
             }
