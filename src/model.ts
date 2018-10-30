@@ -59,6 +59,7 @@ export interface FieldConfig {
   column?: string;
   relatedName?: string;
   throughField?: string;
+  userType?: string;
 }
 
 const SCHEMA_CONFIG: SchemaConfig = { models: [] };
@@ -398,7 +399,7 @@ export class Field {
 export class SimpleField extends Field {
   column: ColumnInfo;
 
-  constructor(model: Model, column: ColumnInfo, config) {
+  constructor(model: Model, column: ColumnInfo, config: FieldConfig) {
     config = Object.assign({}, FIELD_CONFIG, config);
     super(config.name || toCamelCase(column.name), model, config);
     this.column = column;
