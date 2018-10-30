@@ -811,7 +811,6 @@ export class Table {
           promises.push(this._upsertThrough(connection, related, id, args));
           continue;
         }
-        const rows = [];
         for (const arg of toArray(args)) {
           let { create, update } = arg;
           if (!create && !field.isUnique()) {
@@ -1308,7 +1307,11 @@ export function _toCamel(value: Value, field: SimpleField): Value {
   }
 
   if (/int|long/i.test(field.column.type)) {
-    return parseInt(value as string);
+    return typeof value === 'boolean'
+      ? value
+        ? 1
+        : 0
+      : parseInt(value as string);
   }
 
   if (/float|double/i.test(field.column.type)) {
