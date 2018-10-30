@@ -10,6 +10,7 @@ export interface SchemaInfo {
 
 export interface TableInfo {
   name: string;
+  shortName?: string;
   columns: ColumnInfo[];
   constraints?: ConstraintInfo[];
 }
@@ -32,6 +33,7 @@ export interface ConstraintInfo {
 }
 
 export interface SchemaConfig {
+  tablePrefix?: RegExp;
   models: ModelConfig[];
 }
 
@@ -71,7 +73,7 @@ export class Schema {
   private modelMap: { [key: string]: Model } = {};
 
   private getModelConfig(table: TableInfo) {
-    return this.config.models.find(config => config.table === table.name);
+    return this.config.models.find(config => config.table === table.shortName);
   }
 
   private addModel(model: Model) {
@@ -98,6 +100,11 @@ export class Schema {
     this.config = Object.assign({}, SCHEMA_CONFIG, config);
 
     for (const table of database.tables) {
+      if (!table.shortName) {
+        table.shortName = config.tablePrefix
+          ? table.name.replace(config.tablePrefix, '')
+          : table.name;
+      }
       const model = new Model(this, table, this.getModelConfig(table));
       this.addModel(model);
     }
@@ -136,9 +143,9 @@ export class Model {
     this.domain = domain;
     this.table = table;
     this.config = Object.assign({}, MODEL_CONFIG, config);
-    this.name = this.config.name || toPascalCase(table.name);
+    this.name = this.config.name || toPascalCase(table.shortName);
     this.pluralName =
-      this.config.pluralName || toCamelCase(pluralise(table.name));
+      this.config.pluralName || toCamelCase(pluralise(table.shortName));
 
     const references: { [key: string]: ConstraintInfo } = {};
     for (const index of table.constraints) {

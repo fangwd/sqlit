@@ -95,7 +95,7 @@ export class Database {
     for (const model of schema.models) {
       const table = new Table(this, model);
       this.tableMap[model.name] = table;
-      this.tableMap[model.table.name] = table;
+      this.tableMap[model.table.shortName] = table;
       this.tableList.push(table);
     }
 
