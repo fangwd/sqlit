@@ -5,7 +5,6 @@ import { Connection, Row, Value } from './engine';
 import { encodeFilter } from './filter';
 
 import { SimpleField } from './model';
-import { promiseAll } from './misc';
 
 export enum FlushMethod {
   INSERT,
