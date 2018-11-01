@@ -234,15 +234,21 @@ export class QueryBuilder {
       let model = this.model;
       for (let i = 0; i < fields.length - 1; i++) {
         const name = fields[i];
-        if (!result[name]) {
-          result[name] = {};
-        }
         const field = model.field(name);
         if (!(field instanceof ForeignKeyField)) {
           throw Error(`Not a foreign key: ${entry}`);
         }
-        result = result[name];
-        model = field.referencedField.model;
+        if (
+          i < fields.length - 2 ||
+          (i === fields.length - 2 &&
+            fields[i + 1] !== field.referencedField.model.primaryKey.name())
+        ) {
+          if (!result[name]) {
+            result[name] = {};
+          }
+          result = result[name];
+          model = field.referencedField.model;
+        }
       }
     }
     return filter;
@@ -256,8 +262,13 @@ export class QueryBuilder {
 
     if (match) {
       const entry = aliasMap[match[1]];
-      alias = entry.name;
-      field = entry.model.field(match[2]);
+      if (entry) {
+        alias = entry.name;
+        field = entry.model.field(match[2]);
+      } else {
+        alias = this.alias || this.model.table.name;
+        field = this.model.field(path.split('.')[0]);
+      }
     } else {
       alias = this.alias || this.model.table.name;
       field = this.model.field(path);
