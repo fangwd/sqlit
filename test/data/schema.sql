@@ -96,14 +96,14 @@ create table order_item (
   product_id integer,
   quantity float,
   constraint order_product unique (order_id, product_id),
-  foreign key (order_id) references `order`(id),
+  foreign key (order_id) references `order`(id) on delete cascade,
   foreign key (product_id) references product(id)
 );
 
 create table `order_shipping` (
   order_id integer primary key,
   status int,
-  foreign key (order_id) references `order`(id)
+  foreign key (order_id) references `order`(id) on delete cascade
 );
 
 create table `order_shipping_event` (
@@ -111,7 +111,7 @@ create table `order_shipping_event` (
   order_shipping_id integer,
   event_time datetime,
   event_description char(200),
-  foreign key (order_shipping_id) references order_shipping(order_id),
+  foreign key (order_shipping_id) references order_shipping(order_id) on delete cascade,
   unique (order_shipping_id, event_time)
 );
 

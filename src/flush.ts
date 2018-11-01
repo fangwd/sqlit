@@ -1,10 +1,10 @@
-import { Database, Table, Document, toDocument } from './database';
+import { Database, Table, Document, Filter, toDocument } from './database';
 import { Record } from './record';
 
 import { Connection, Row, Value } from './engine';
 import { encodeFilter } from './filter';
 
-import { SimpleField } from './model';
+import { SimpleField, RelatedField } from './model';
 
 export enum FlushMethod {
   INSERT,
@@ -51,7 +51,7 @@ class FlushContext {
 function collectParentFields(
   record: Record,
   context: FlushContext,
-  perfect: boolean
+  perfect: number
 ) {
   if (!record.__dirty() || context.visited.has(record)) return;
 
@@ -78,11 +78,11 @@ export function flushRecord(
   return new Promise((resolve, reject) => {
     function __resolve() {
       const context = new FlushContext(connection);
-      collectParentFields(record, context, true);
+      collectParentFields(record, context, 1);
       if (context.promises.length > 0) {
         Promise.all(context.promises).then(() => __resolve());
       } else {
-        if (record.__flushable(false)) {
+        if (record.__flushable(0)) {
           _persist(connection, record).then(() => {
             if (!record.__dirty()) {
               resolve(record);
@@ -92,7 +92,7 @@ export function flushRecord(
           });
         } else {
           const context = new FlushContext(connection);
-          collectParentFields(record, context, false);
+          collectParentFields(record, context, 0);
           if (context.promises.length > 0) {
             Promise.all(context.promises).then(() => __resolve());
           } else {
@@ -189,7 +189,7 @@ function _persist(connection: Connection, record: Record): Promise<Record> {
 function flushTable(
   connection: Connection,
   table: Table,
-  perfect?: boolean
+  perfect?: number
 ): Promise<number> {
   if (table.recordList.length === 0) {
     return Promise.resolve(0);
@@ -221,7 +221,7 @@ function flushTable(
 function _flushTable(
   connection: Connection,
   table: Table,
-  perfect: boolean
+  perfect: number
 ): Promise<number> {
   mergeRecords(table);
 
@@ -401,7 +401,7 @@ function flushDatabaseA(connection: Connection, db: Database): Promise<any> {
   return new Promise((resolve, reject) => {
     function _flush() {
       const promises = db.tableList.map(table =>
-        flushTable(connection, table, true)
+        flushTable(connection, table, 1)
       );
       Promise.all(promises)
         .then(results => {
@@ -540,4 +540,113 @@ export function _insertRecords(
   const query = `insert into ${into} (${columns}) values ${values.join(',')}`;
 
   return connection.query(query);
+}
+
+export async function replaceRecord(
+  connection: Connection,
+  table: Table,
+  doc: Document
+): Promise<Record> {
+  const record = table.append();
+
+  for (const name in doc) {
+    const field = table.model.field(name);
+    if (field instanceof SimpleField) {
+      record[name] = doc[name];
+    }
+  }
+
+  await flushTable(connection, table, -1);
+
+  table.clear();
+
+  for (const name in doc) {
+    const field = table.model.field(name);
+
+    if (field instanceof RelatedField) {
+      const childRecords = [];
+
+      const referencingTable = table.db.table(field.referencingField.model);
+      const value = record.__primaryKey();
+
+      const mapTable = await _buildMapTable(connection, referencingTable, {
+        [field.referencingField.name]: value
+      });
+
+      const matchedSet = new Set();
+      const batched = [];
+
+      for (const item of doc[name] as Document[]) {
+        const data = {
+          ...item,
+          [field.referencingField.name]: value
+        };
+        let batch = true;
+        for (const key in item) {
+          if (Array.isArray(item[key])) {
+            batch = false;
+            break;
+          }
+        }
+        if (batch) {
+          batched.push(data);
+        } else {
+          const childRecord = await replaceRecord(
+            connection,
+            referencingTable,
+            data
+          );
+          matchedSet.add(mapTable._mapGet(childRecord));
+          childRecords.push(childRecord);
+        }
+      }
+
+      const tempTable = table.db.clone().table(referencingTable.name);
+
+      batched.forEach(item => tempTable.append(item));
+
+      await flushTable(connection, tempTable, -1);
+
+      for (const childRecord of tempTable.recordList) {
+        matchedSet.add(mapTable._mapGet(childRecord));
+        childRecords.push(childRecord);
+      }
+
+      record[field.name] = childRecords;
+
+      const values: Value[] = [];
+
+      for (const record of mapTable.recordList) {
+        if (!matchedSet.has(record)) {
+          values.push(record.__primaryKey());
+        }
+      }
+
+      if (values.length > 0) {
+        await referencingTable._delete(connection, {
+          [referencingTable.model.primaryKey.name()]: values
+        });
+      }
+    }
+  }
+
+  return record;
+}
+
+async function _buildMapTable(
+  connection: Connection,
+  table: Table,
+  filter: Filter
+): Promise<Table> {
+  const model = table.model;
+  const dialect = table.db.pool;
+  const fields = model.fields.filter(field => field.uniqueKey);
+  const columns = fields.map(field => (field as SimpleField).column.name);
+  const from = dialect.escapeId(model.table.name);
+  const where = encodeFilter(filter, table.model, dialect);
+  const query = `select ${columns.join(',')} from ${from} where ${where}`;
+  const rows = await connection.query(query);
+  const mapTable = makeMapTable(table);
+  rows.forEach(row => mapTable.append(toDocument(row, table.model)));
+  return mapTable;
 }

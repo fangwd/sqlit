@@ -1,5 +1,5 @@
 import { Value, ConnectionInfo, createConnectionPool } from './engine';
-import { flushDatabase } from './flush';
+import { flushDatabase, replaceRecord } from './flush';
 import { RecordProxy, Record, getModel } from './record';
 import {
   loadTable,
@@ -393,6 +393,17 @@ export class Table {
         });
       }
     });
+  }
+
+  replace(data: Document): Promise<Record> {
+    return this.db.pool.getConnection().then(connection =>
+      connection.transaction(() =>
+        replaceRecord(connection, this, data).then(record => {
+          connection.release();
+          return record;
+        })
+      )
+    );
   }
 
   count(filter?: Filter, expr?: string): Promise<number> {

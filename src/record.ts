@@ -40,7 +40,8 @@ export const RecordProxy = {
         record.__data[name] = _toCamel(value, field);
         record.__state.dirty.add(name);
       } else if (field instanceof RelatedField) {
-        throw Error(`Not assignable: ${model.name}.${name}`);
+        // Used by replace and __json() only
+        record.__data[name] = value;
       } else {
         throw Error(`Invalid field: ${model.name}.${name}`);
       }
@@ -125,7 +126,9 @@ export class Record {
     return this.__state.dirty.size > 0;
   }
 
-  __flushable(perfect?: boolean): boolean {
+  __flushable(perfect?: number): boolean {
+    if (perfect < 0) return true;
+
     if (this.__state.merged) {
       return false;
     }
@@ -149,6 +152,7 @@ export class Record {
     });
 
     if (flushable === 0) return false;
+
     return perfect ? flushable === this.__state.dirty.size : true;
   }
 
@@ -258,7 +262,15 @@ export class Record {
   __json() {
     const result = {};
     for (const field of this.__table.model.fields) {
-      result[field.name] = this.__getValue(field.name);
+      const value = this.__getValue(field.name);
+      if (Array.isArray(value)) {
+        result[field.name] = (value as Record[]).map(record => record.__json());
+        for (const item of result[field.name]) {
+          delete item[(field as RelatedField).referencingField.name];
+        }
+      } else if (value !== undefined) {
+        result[field.name] = value;
+      }
     }
     return result;
   }
