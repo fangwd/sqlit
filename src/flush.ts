@@ -126,8 +126,8 @@ function _persist(connection: Connection, record: Record): Promise<Record> {
   const fields = record.__fields();
 
   if (method === FlushMethod.UPDATE) {
-    return record.__table._update(connection, fields, filter).then(affected => {
-      if (affected > 0) {
+    return record.__table._update(connection, fields, filter).then(result => {
+      if (result.changedRows > 0) {
         record.__remove_dirty(Object.keys(fields));
         return record;
       }

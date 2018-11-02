@@ -69,12 +69,10 @@ class _Connection extends Connection {
         if (error) {
           return reject(error);
         }
-        if (Array.isArray(results)) {
-          resolve(results);
-        } else if (results.insertId) {
+        if (results.insertId) {
           resolve(results.insertId);
         } else {
-          resolve(results.changedRows);
+          resolve(results);
         }
       })
     );

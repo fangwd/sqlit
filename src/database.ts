@@ -1061,7 +1061,7 @@ export class Table {
 
       function _update(row) {
         self.update(data, self.model.getUniqueFields(row)).then(result => {
-          if (result === 1) {
+          if (result.changedRows === 1) {
             resolve(row);
           } else {
             setTimeout(_select, Math.random() * 1000);
