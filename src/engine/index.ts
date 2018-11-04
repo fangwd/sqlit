@@ -28,6 +28,7 @@ export interface Dialect {
 export abstract class Connection implements Dialect {
   dialect: string;
   connection: any;
+  name: string;
   queryCounter: QueryCounter;
 
   abstract query(sql: string): Promise<any>;
@@ -50,6 +51,7 @@ export abstract class Connection implements Dialect {
 
 export abstract class ConnectionPool implements Dialect {
   dialect: string;
+  name: string;
 
   abstract getConnection(): Promise<Connection>;
   abstract close(): Promise<any>;
@@ -63,14 +65,18 @@ export function createConnectionPool(
   connection: any
 ): ConnectionPool {
   if (dialect === 'mysql') {
-    return require('./mysql').default.createConnectionPool(connection);
+    const result = require('./mysql').default.createConnectionPool(connection);
+    result.name = connection.database;
+    return result;
   }
   throw Error(`Unsupported engine type: ${dialect}`);
 }
 
 export function createConnection(dialect: string, connection: any): Connection {
   if (dialect === 'mysql') {
-    return require('./mysql').default.createConnection(connection);
+    const result = require('./mysql').default.createConnection(connection);
+    result.name = connection.database;
+    return result;
   }
   throw Error(`Unsupported engine type: ${dialect}`);
 }
