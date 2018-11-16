@@ -859,12 +859,62 @@
                     "columns": [
                         "id"
                     ]
+                }
+            ]
+        },
+        {
+            "name": "comment",
+            "columns": [
+                {
+                    "name": "id",
+                    "type": "int",
+                    "nullable": false,
+                    "autoIncrement": true
                 },
                 {
-                    "unique": true,
+                    "name": "post_id",
+                    "type": "int",
+                    "nullable": true
+                },
+                {
+                    "name": "parent_id",
+                    "type": "integer",
+                    "nullable": true
+                },
+                {
+                    "name": "content",
+                    "type": "varchar",
+                    "size": 100,
+                    "nullable": true
+                }
+            ],
+            "constraints": [
+                {
                     "columns": [
-                        "user_id",
-                        "title"
+                        "parent_id"
+                    ],
+                    "references": {
+                        "table": "comment",
+                        "columns": [
+                            "id"
+                        ]
+                    }
+                },
+                {
+                    "columns": [
+                        "post_id"
+                    ],
+                    "references": {
+                        "table": "user",
+                        "columns": [
+                            "id"
+                        ]
+                    }
+                },
+                {
+                    "primaryKey": true,
+                    "columns": [
+                        "id"
                     ]
                 }
             ]

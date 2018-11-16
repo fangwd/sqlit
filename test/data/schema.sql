@@ -134,8 +134,16 @@ create table post(
   id int key auto_increment,
   title varchar(100),
   user_id int,
-  unique (user_id, title),
   foreign key (user_id) references user(id)
+);
+
+create table comment(
+  id int key auto_increment,
+  post_id int,
+  parent_id integer default null,
+  content varchar(100),
+  foreign key (parent_id) references comment(id) on delete cascade,
+  foreign key (post_id) references user(id)
 );
 
 alter table user add foreign key (first_post_id) references post(id);
