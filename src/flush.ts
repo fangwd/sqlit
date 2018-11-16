@@ -236,12 +236,14 @@ function _flushTable(
       !record.__state.selected
     ) {
       const entry = record.__filter();
-      for (const name in entry) {
-        nameSet.add(name);
+      if (entry) {
+        for (const name in entry) {
+          nameSet.add(name);
+        }
+        record.__state.dirty.forEach(name => nameSet.add(name));
+        filter.push(entry);
       }
-      record.__state.dirty.forEach(name => nameSet.add(name));
       recordSet.add(record);
-      filter.push(entry);
     }
   }
 
