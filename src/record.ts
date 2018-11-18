@@ -28,10 +28,16 @@ export const RecordProxy = {
             record.__data[name] = value;
           } else {
             const model = field.referencedField.model;
+            let removeDirty = false;
             if (typeof value !== 'object') {
               value = { [model.keyField().name]: value };
+              removeDirty = true;
             }
-            record.__data[name] = record.__table.db.table(model).append(value);
+            const parent = record.__table.db.table(model).append(value);
+            record.__data[name] = parent;
+            if (removeDirty) {
+              parent.__remove_dirty(model.keyField().name);
+            }
           }
           record.__state.dirty.add(name);
         }
