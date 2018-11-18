@@ -539,7 +539,7 @@ export class Table {
     const name = keys.map(key => this.escapeName(key)).join(', ');
     const value = keys.map(key => this.escapeValue(key, data[key])).join(', ');
     const sql = `insert into ${this._name()} (${name}) values (${value})`;
-    return connection.query(sql);
+    return connection.query(sql).then(insertId => typeof insertId === 'number' ? insertId : 0);
   }
 
   _delete(connection: Connection, filter: Filter): Promise<any> {
