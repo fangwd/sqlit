@@ -3,7 +3,6 @@ import { Database, Table } from '../src/database';
 import { Record } from '../src/record';
 
 import helper = require('./helper');
-import { FlushMethod, dumpDirtyRecords } from '../src/flush';
 
 const NAME = 'flush';
 
@@ -348,6 +347,93 @@ test('flush #6', async done => {
 
   user = await db.table('user').get({ email: email4 });
   expect(user.lastName).toBe('name-4');
+
+  done();
+});
+
+test('beforeStart', async done => {
+  const db = helper.connectToDatabase(NAME);
+
+  const title = 'Example Post';
+  const content = 'Example Comment';
+
+  const post = db.table('post').append({ title });
+
+  const comment = db
+    .table('comment')
+    .append({ post, content: content + '1', parent: null }) as any;
+
+  const deleted = db
+    .table('comment')
+    .append({ post, content: content + '2', parent: null }) as any;
+
+  await db.flush();
+
+  db.clear();
+
+  db.table('comment').append({
+    id: comment.id,
+    content: content + '3',
+    parent: null
+  });
+
+  db.table('comment').append({ post, content: content + '4', parent: null });
+
+  await db.flush(conn =>
+    db.table('comment')._delete(conn, { post: (post as any).id })
+  );
+
+  const comments = await db
+    .table('comment')
+    .select('*', { where: { content_like: content + '%' } });
+
+  expect(comments.length).toBe(2);
+  expect(!!comments.find(c => c.id === comment.id)).toBe(true);
+  expect(!!comments.find(c => c.id === deleted.id)).toBe(false);
+
+  done();
+});
+
+test('beforeCommit', async done => {
+  const db = helper.connectToDatabase(NAME);
+
+  const title = 'Example Post';
+  const content = 'Example Comment';
+
+  const post = db.table('post').append({ title });
+
+  const comment = db
+    .table('comment')
+    .append({ post, content: content + '1', parent: null }) as any;
+
+  const deleted = db
+    .table('comment')
+    .append({ post, content: content + '2', parent: null }) as any;
+
+  await db.flush();
+
+  db.clear();
+
+  db.table('comment').append({
+    id: comment.id,
+    content: content + '3',
+    parent: null
+  });
+
+  db.table('comment').append({ post, content: content + '4', parent: null });
+
+  await db.flush(null, conn => {
+    const ids = db.table('comment').recordList.map(r => (r as any).id);
+    return db.table('comment')._delete(conn, { not: { id: ids } });
+  });
+
+  const comments = await db
+    .table('comment')
+    .select('*', { where: { content_like: content + '%' } });
+
+  expect(comments.length).toBe(2);
+  expect(!!comments.find(c => c.id === comment.id)).toBe(true);
+  expect(!!comments.find(c => c.id === deleted.id)).toBe(false);
 
   done();
 });

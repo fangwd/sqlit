@@ -1,7 +1,7 @@
 import { Database, Table, Document, Filter, toDocument } from './database';
 import { Record } from './record';
 
-import { Connection, Row, Value } from './engine';
+import { Connection, Value } from './engine';
 import { encodeFilter } from './filter';
 
 import { SimpleField, RelatedField } from './model';
@@ -447,18 +447,31 @@ export function flushDatabaseB(connection: Connection, db: Database) {
   });
 }
 
-export function flushDatabase(connection: Connection, db: Database) {
+export function flushDatabase(
+  connection: Connection,
+  db: Database,
+  beforeStart?: (c: Connection) => Promise<any>,
+  beforeCommit?: (c: Connection) => Promise<any>
+) {
+  const defaultBefore = (c: Connection) => Promise.resolve();
+
+  beforeStart = beforeStart || defaultBefore;
+  beforeCommit = beforeCommit || defaultBefore;
+
   return new Promise((resolve, reject) => {
     let perfect = true;
     const _flush = () => {
       connection.transaction(() => {
-        (perfect ? flushDatabaseA(connection, db) : Promise.resolve())
+        beforeStart(connection)
           .then(() =>
-            flushDatabaseB(connection, db).then(() => {
-              connection.commit().then(() => {
-                resolve();
-              });
-            })
+            (perfect ? flushDatabaseA(connection, db) : Promise.resolve()).then(
+              () =>
+                flushDatabaseB(connection, db).then(() => {
+                  beforeCommit(connection).then(() =>
+                    connection.commit().then(() => resolve())
+                  );
+                })
+            )
           )
           .catch(error => {
             connection.rollback().then(() => {

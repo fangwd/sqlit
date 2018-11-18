@@ -164,9 +164,12 @@ export class Database {
     }, 0);
   }
 
-  flush() {
+  flush(
+    beforeStart?: (c: Connection) => Promise<any>,
+    beforeCommit?: (c: Connection) => Promise<any>
+  ) {
     return this.pool.getConnection().then(connection =>
-      flushDatabase(connection, this).then(result => {
+      flushDatabase(connection, this, beforeStart, beforeCommit).then(() => {
         connection.release();
         return connection;
       })
@@ -666,11 +669,10 @@ export class Table {
     return this._resolveParentFields(connection, data).then(row =>
       this._insert(connection, row).then(id => {
         return this._updateChildFields(connection, data, id).then(() =>
-          this._get(connection, id).then(
-            row =>
-              this.closureTable
-                ? createNode(connection, this, row).then(() => row)
-                : row
+          this._get(connection, id).then(row =>
+            this.closureTable
+              ? createNode(connection, this, row).then(() => row)
+              : row
           )
         );
       })
@@ -726,11 +728,10 @@ export class Table {
         return self._get(connection, where as Document).then(row => {
           if (row) {
             const id = row[this.model.keyField().name] as Value;
-            return this._updateChildFields(connection, data, id).then(
-              () =>
-                !this.closureTable || !data[this.getParentField().name]
-                  ? row
-                  : moveSubtree(connection, this, row).then(() => row)
+            return this._updateChildFields(connection, data, id).then(() =>
+              !this.closureTable || !data[this.getParentField().name]
+                ? row
+                : moveSubtree(connection, this, row).then(() => row)
             );
           } else {
             return Promise.resolve(row);
@@ -920,14 +921,13 @@ export class Table {
     const table = this.db.table(related.throughField.referencedField.model);
     const mapping = this.db.table(related.throughField.model);
     const promises = args.map(arg =>
-      table._get(connection, arg).then(
-        row =>
-          row
-            ? mapping._create(connection, {
-                [related.referencingField.name]: value,
-                [related.throughField.name]: row[table.model.keyField().name]
-              })
-            : Promise.resolve(null)
+      table._get(connection, arg).then(row =>
+        row
+          ? mapping._create(connection, {
+              [related.referencingField.name]: value,
+              [related.throughField.name]: row[table.model.keyField().name]
+            })
+          : Promise.resolve(null)
       )
     );
     return Promise.all(promises);
