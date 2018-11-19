@@ -1,5 +1,5 @@
 import { Value, ConnectionInfo, createConnectionPool } from './engine';
-import { flushDatabase, replaceRecord } from './flush';
+import { flushDatabase, replaceRecord, FlushOptions } from './flush';
 import { RecordProxy, Record, getModel } from './record';
 import {
   loadTable,
@@ -164,12 +164,9 @@ export class Database {
     }, 0);
   }
 
-  flush(
-    beforeStart?: (c: Connection) => Promise<any>,
-    beforeCommit?: (c: Connection) => Promise<any>
-  ) {
+  flush(flushOptions?: FlushOptions) {
     return this.pool.getConnection().then(connection =>
-      flushDatabase(connection, this, beforeStart, beforeCommit).then(() => {
+      flushDatabase(connection, this, flushOptions).then(() => {
         connection.release();
         return connection;
       })
@@ -539,7 +536,9 @@ export class Table {
     const name = keys.map(key => this.escapeName(key)).join(', ');
     const value = keys.map(key => this.escapeValue(key, data[key])).join(', ');
     const sql = `insert into ${this._name()} (${name}) values (${value})`;
-    return connection.query(sql).then(insertId => typeof insertId === 'number' ? insertId : 0);
+    return connection
+      .query(sql)
+      .then(insertId => (typeof insertId === 'number' ? insertId : 0));
   }
 
   _delete(connection: Connection, filter: Filter): Promise<any> {

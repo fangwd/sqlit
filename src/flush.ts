@@ -4,7 +4,7 @@ import { Record } from './record';
 import { Connection, Value } from './engine';
 import { encodeFilter } from './filter';
 
-import { SimpleField, RelatedField } from './model';
+import { SimpleField, ForeignKeyField, RelatedField } from './model';
 
 export enum FlushMethod {
   INSERT,
@@ -447,28 +447,38 @@ export function flushDatabaseB(connection: Connection, db: Database) {
   });
 }
 
+export interface FlushOptions {
+  afterBegin?: (c: Connection) => Promise<any>;
+  beforeCommit?: (c: Connection) => Promise<any>;
+  replaceRecordsIn?: string[];
+}
+
 export function flushDatabase(
   connection: Connection,
   db: Database,
-  beforeStart?: (c: Connection) => Promise<any>,
-  beforeCommit?: (c: Connection) => Promise<any>
+  options: FlushOptions = {}
 ) {
-  const defaultBefore = (c: Connection) => Promise.resolve();
+  let { afterBegin, beforeCommit } = options;
 
-  beforeStart = beforeStart || defaultBefore;
-  beforeCommit = beforeCommit || defaultBefore;
+  afterBegin = afterBegin || ((c: Connection) => Promise.resolve());
+  beforeCommit = beforeCommit || ((c: Connection) => Promise.resolve());
 
   return new Promise((resolve, reject) => {
     let perfect = true;
     const _flush = () => {
       connection.transaction(() => {
-        beforeStart(connection)
+        afterBegin(connection)
           .then(() =>
             (perfect ? flushDatabaseA(connection, db) : Promise.resolve()).then(
               () =>
                 flushDatabaseB(connection, db).then(() => {
-                  beforeCommit(connection).then(() =>
-                    connection.commit().then(() => resolve())
+                  const replace = options.replaceRecordsIn
+                    ? replaceRecordsIn(connection, db, options.replaceRecordsIn)
+                    : Promise.resolve();
+                  replace.then(() =>
+                    beforeCommit(connection).then(() =>
+                      connection.commit().then(() => resolve())
+                    )
                   );
                 })
             )
@@ -664,4 +674,90 @@ async function _buildMapTable(
   const mapTable = makeMapTable(table);
   rows.forEach(row => mapTable.append(toDocument(row, table.model)));
   return mapTable;
+}
+
+async function replaceRecordsIn(
+  connection: Connection,
+  db: Database,
+  names: string[]
+) {
+  if (names.length === 0) return;
+
+  const table = db.table(names[0]);
+
+  if (table.recordList.length === 0) {
+    return;
+  }
+
+  const nameSet: Set<string> = new Set();
+  for (let i = 1; i < names.length; i++) {
+    nameSet.add(names[i]);
+  }
+
+  const referencingTables = _getReferencingTables(table);
+  const values = table.recordList.map(record => record.__primaryKey());
+
+  for (const referencingTable of referencingTables) {
+    if (nameSet.has(referencingTable.table.name)) {
+      await _deleteRecords(
+        connection,
+        referencingTable.table,
+        referencingTable.field,
+        values,
+        nameSet
+      );
+    }
+  }
+}
+
+async function _deleteRecords(
+  connection: Connection,
+  table: Table,
+  field: ForeignKeyField,
+  values: Value[],
+  nameSet: Set<string>
+) {
+  const ids = table.recordList.map(record => record.__primaryKey());
+
+  const filter = {
+    [field.name]: values,
+    not: { [table.model.keyField().name + '_in']: ids }
+  };
+
+  await table._delete(connection, filter);
+
+  const referencingTables = _getReferencingTables(table);
+  for (const referencingTable of referencingTables) {
+    if (nameSet.has(referencingTable.table.name)) {
+      await _deleteRecords(
+        connection,
+        referencingTable.table,
+        referencingTable.field,
+        ids,
+        nameSet
+      );
+    }
+  }
+}
+
+interface ReferencingTableInfo {
+  table: Table;
+  field: ForeignKeyField;
+}
+
+function _getReferencingTables(table: Table): ReferencingTableInfo[] {
+  const referencingTables = [];
+  for (const model of table.model.domain.models) {
+    if (model === table.model) continue;
+    const referencingTable = table.db.table(model);
+    for (const field of model.fields) {
+      if (field instanceof ForeignKeyField) {
+        const referencedTable = table.db.table(field.referencedField.model);
+        if (referencedTable === table) {
+          referencingTables.push({ table: referencingTable, field });
+        }
+      }
+    }
+  }
+  return referencingTables;
 }

@@ -351,7 +351,7 @@ test('flush #6', async done => {
   done();
 });
 
-test('beforeStart', async done => {
+test('afterBegin', async done => {
   const db = helper.connectToDatabase(NAME);
 
   const title = 'Example Post';
@@ -379,9 +379,10 @@ test('beforeStart', async done => {
 
   db.table('comment').append({ post, content: content + '4', parent: null });
 
-  await db.flush(conn =>
-    db.table('comment')._delete(conn, { post: (post as any).id })
-  );
+  await db.flush({
+    afterBegin: conn =>
+      db.table('comment')._delete(conn, { post: (post as any).id })
+  });
 
   const comments = await db
     .table('comment')
@@ -422,9 +423,11 @@ test('beforeCommit', async done => {
 
   db.table('comment').append({ post, content: content + '4', parent: null });
 
-  await db.flush(null, conn => {
-    const ids = db.table('comment').recordList.map(r => (r as any).id);
-    return db.table('comment')._delete(conn, { not: { id: ids } });
+  await db.flush({
+    beforeCommit: conn => {
+      const ids = db.table('comment').recordList.map(r => (r as any).id);
+      return db.table('comment')._delete(conn, { not: { id: ids } });
+    }
   });
 
   const comments = await db
@@ -434,6 +437,340 @@ test('beforeCommit', async done => {
   expect(comments.length).toBe(2);
   expect(!!comments.find(c => c.id === comment.id)).toBe(true);
   expect(!!comments.find(c => c.id === deleted.id)).toBe(false);
+
+  done();
+});
+
+test('replaceRecordsIn (1)', async done => {
+  const db = helper.connectToDatabase(NAME);
+
+  const alice = db.append('user', { email: 'alice' });
+  const bob = db.append('user', { email: 'bob' });
+
+  const createOrders = user => {
+    for (let i = 1; i <= 3; i++) {
+      const order = db
+        .table('order')
+        .append({ code: `${user.email}-a${i}`, user });
+      for (let j = 1; j <= 3; j++) {
+        db.table('order_item').append({ order, product: j, quantity: j });
+      }
+    }
+  };
+
+  createOrders(alice);
+  createOrders(bob);
+
+  await db.flush();
+
+  db.clear();
+
+  const order = db.table('order').append({ code: `alice-a1`, user: alice });
+
+  for (let j = 2; j <= 4; j++) {
+    db.table('order_item').append({ order, product: j, quantity: j + 1 });
+  }
+
+  db.table('order').append({ code: `bob-a1`, user: bob });
+
+  await db.flush({ replaceRecordsIn: ['order'] });
+
+  const aliceItems = await db
+    .table('order_item')
+    .select('*', { where: { order: { code: 'alice-a1' } } });
+
+  expect(aliceItems.length).toBe(4);
+
+  expect(aliceItems.find(item => (item.product as any).id === 3).quantity).toBe(
+    4
+  );
+
+  const bobItems = await db
+    .table('order_item')
+    .select('*', { where: { order: { code: 'bob-a1' } } });
+
+  expect(bobItems.length).toBe(3);
+
+  done();
+});
+
+test('replaceRecordsIn (2)', async done => {
+  const db = helper.connectToDatabase(NAME);
+
+  let alice = db.append('user', { email: 'alice' });
+  let bob = db.append('user', { email: 'bob' });
+
+  const createOrders = user => {
+    for (let i = 1; i <= 3; i++) {
+      const order = db
+        .table('order')
+        .append({ code: `${user.email}-b${i}`, user });
+      for (let j = 1; j <= 3; j++) {
+        db.table('order_item').append({ order, product: j, quantity: j });
+      }
+    }
+  };
+
+  createOrders(alice);
+  createOrders(bob);
+
+  await db.flush();
+
+  db.clear();
+
+  alice = db.append('user', { email: 'alice' });
+  bob = db.append('user', { email: 'bob' });
+
+  const order = db.table('order').append({ code: `alice-b1`, user: alice });
+  for (let j = 2; j <= 4; j++) {
+    db.table('order_item').append({ order, product: j, quantity: j + 1 });
+  }
+
+  db.table('order').append({ code: `bob-b1`, user: bob });
+  db.table('order').append({ code: `bob-b2`, user: bob });
+
+  await db.flush({ replaceRecordsIn: ['user', 'order', 'order_item'] });
+
+  const aliceOrders = await db
+    .table('order')
+    .select('*', { where: { user: alice } });
+
+  expect(aliceOrders.length).toBe(1);
+
+  const aliceItems = await db
+    .table('order_item')
+    .select('*', { where: { order: { code: 'alice-b1' } } });
+
+  expect(aliceItems.length).toBe(3);
+
+  expect(aliceItems.find(item => (item.product as any).id === 3).quantity).toBe(
+    4
+  );
+
+  const bobOrders = await db
+    .table('order')
+    .select('*', { where: { user: bob } });
+
+  expect(bobOrders.length).toBe(2);
+
+  const bobItems = await db
+    .table('order_item')
+    .select('*', { where: { order: { code_like: 'bob-b%' } } });
+
+  expect(bobItems.length).toBe(0);
+
+  done();
+});
+
+function createTestPosts(db: Database, user) {
+  const allPosts = [];
+  const allComments = [];
+
+  for (let i = 0; i < 4; i++) {
+    const post = db.table('post').append({ title: '', user });
+    const comments = [];
+    comments.push(
+      db.table('comment').append({ post, parent: null, content: '' })
+    );
+    comments.push(
+      db.table('comment').append({ post, parent: null, content: '' })
+    );
+    for (let j = 0; j < 2; j++) {
+      const comment = db
+        .table('comment')
+        .append({ post, parent: comments[0], content: '' });
+      comments.push(comment);
+      for (let k = 0; k < 2; k++) {
+        comments.push(
+          db.table('comment').append({ post, parent: comment, content: '' })
+        );
+      }
+    }
+    allPosts.push(post);
+    allComments.push(comments);
+  }
+
+  return [allPosts, allComments];
+}
+
+test('replaceRecordsIn (3)', async done => {
+  const db = helper.connectToDatabase(NAME);
+
+  let user = db.append('user', { email: 'alice' });
+
+  const [allPosts, allComments] = createTestPosts(db, user);
+
+  await db.flush();
+
+  db.clear();
+
+  user = db.append('user', { email: 'alice' });
+
+  // post with title '0', no comments
+  db.table('post').append({ id: allPosts[0].id, title: '0', user });
+
+  /*
+                                               +-------+
+                                               |   P   |
+                                               ++---+--+
+                                                ^   ^
+                                                |   |
+                                                |   |
+                             +---------+        |   |          +---------+
+                             | [0] 0   +--------+   +----------+ [1] 1   |
+                             +-+-----+-+                       +---------+
+                               ^     ^
+                               |     |
+           +---------+         |     |      +---------+
+           | [2] 0.0 +---------+     +------+ [5] 0.1 |
+           ++-----+--+                      ++------+-+
+            ^     ^                          ^      ^
+            |     |                          |      |
+            |     |                          |      |
++-----------++   ++-----------+   +----------+-+   ++-----------+
+| [3] 0.0.0  |   | [4] 0.0.1  |   | [6] 0.1.0  |   | [7] 0.1.1  |
++------------+   +------------+   +------------+   +------------+
+*/
+
+  {
+    // post with title '1', just comment 0, comment 0.0, comment 0.0.1 and 1
+    let post = db
+      .table('post')
+      .append({ id: allPosts[1].id, title: '1', user });
+
+    const comments = allComments[1];
+
+    const c0 = db.table('comment').append({
+      id: comments[0].id,
+      post,
+      parent: null,
+      content: '0'
+    });
+
+    const c1 = db.table('comment').append({
+      id: comments[2].id,
+      post,
+      parent: c0,
+      content: '0.0'
+    });
+
+    db.table('comment').append({
+      id: comments[4].id,
+      post,
+      parent: c1,
+      content: '0.0.1'
+    });
+
+    db.table('comment').append({
+      id: comments[1],
+      post,
+      parent: null,
+      content: '1'
+    });
+  }
+  {
+    // post with title '2', just comment 0, comment 0.1, comment 0.1.0
+    let post = db
+      .table('post')
+      .append({ id: allPosts[2].id, title: '2', user });
+
+    const comments = allComments[2];
+
+    const c0 = db.table('comment').append({
+      id: comments[0].id,
+      post,
+      parent: null,
+      content: '0'
+    });
+
+    const c1 = db.table('comment').append({
+      id: comments[5].id,
+      post,
+      parent: c0,
+      content: '0.1'
+    });
+
+    const c2 = db.table('comment').append({
+      id: comments[6].id,
+      post,
+      parent: c1,
+      content: '0.1.0'
+    });
+
+    db.table('comment').append({
+      post,
+      parent: c2,
+      content: '0.1.1'
+    });
+  }
+
+  await db.flush({ replaceRecordsIn: ['user', 'post', 'comment'] });
+
+  const posts = await db
+    .table('post')
+    .select('*', { where: { user }, orderBy: 'title' });
+
+  expect(posts.length).toBe(3);
+  expect(posts[0].title).toBe('0');
+  expect(posts[1].title).toBe('1');
+  expect(posts[2].title).toBe('2');
+
+  {
+    const comments = await db
+      .table('comment')
+      .select('*', { where: { post: posts[0].id }, orderBy: 'content' });
+    expect(comments.length).toBe(0);
+  }
+
+  {
+    const comments = await db
+      .table('comment')
+      .select('*', { where: { post: posts[1].id }, orderBy: 'content' });
+    expect(comments[1].parent.id).toBe(comments[0].id);
+    expect(comments[2].parent.id).toBe(comments[1].id);
+    expect(comments.length).toBe(4);
+  }
+
+  {
+    const comments = await db
+      .table('comment')
+      .select('*', { where: { post: posts[2].id }, orderBy: 'content' });
+    expect(comments.length).toBe(4);
+    expect(comments[3].parent.id).toBe(comments[2].id);
+  }
+
+  done();
+});
+
+test('replaceRecordsIn (4)', async done => {
+  const db = helper.connectToDatabase(NAME);
+
+  let user = db.append('user', { email: 'alice2' });
+
+  const [allPosts, allComments] = createTestPosts(db, user);
+
+  await db.flush();
+
+  db.clear();
+
+  const bob2 = db.append('user', { email: 'bob2' });
+
+  db.table('post').append({ id: allPosts[0].id, title: '0', user: bob2 });
+  db.table('post').append({ id: allPosts[1].id, title: '1', user: bob2 });
+
+  await db.flush({ replaceRecordsIn: ['user', 'post'] });
+
+  const posts = await db
+    .table('post')
+    .select('*', { where: { user: bob2.id }, orderBy: 'title' });
+
+  expect(posts.length).toBe(2);
+
+  const comments = await db
+    .table('comment')
+    .select('*', { where: { post: posts[1].id } });
+
+  expect(comments.length).toBe(8);
 
   done();
 });
