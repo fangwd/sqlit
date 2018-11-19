@@ -143,7 +143,7 @@ create table comment(
   parent_id integer default null,
   content varchar(100),
   foreign key (parent_id) references comment(id) on delete cascade,
-  foreign key (post_id) references user(id)
+  foreign key (post_id) references post(id) on delete cascade
 );
 
 alter table user add foreign key (first_post_id) references post(id);

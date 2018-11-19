@@ -905,7 +905,7 @@
                         "post_id"
                     ],
                     "references": {
-                        "table": "user",
+                        "table": "post",
                         "columns": [
                             "id"
                         ]
