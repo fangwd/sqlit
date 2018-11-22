@@ -105,8 +105,8 @@ export class QueryBuilder {
     return exprs.length === 0
       ? ''
       : exprs.length === 1
-        ? exprs[0]
-        : exprs.map(x => `(${x})`).join(' or ');
+      ? exprs[0]
+      : exprs.map(x => `(${x})`).join(' or ');
   }
 
   private and(args: Filter): string {
@@ -143,10 +143,17 @@ export class QueryBuilder {
             const [name, operator] = splitKey(keys[0] as string);
             if (name === field.referencedField.name) {
               const value = query[keys[0]] as Value;
-              if (isValue(value)) {
-                exprs.push(this.expr(field, operator, value));
-                continue;
-              }
+              exprs.push(this.expr(field, operator, value));
+              continue;
+            }
+            const relatedField = field.referencedField.model.field(name);
+            if (relatedField instanceof RelatedField) {
+              const field = relatedField.referencingField;
+              const builder = new QueryBuilder(field.model, this.dialect);
+              const rhs = builder.select(field, query[keys[0]] as Filter);
+              const lhs = this.dialect.escapeId(field.column.name);
+              exprs.push(`${lhs} in (${rhs})`);
+              continue;
             }
           }
           const expr = this._join(field, query);
@@ -192,8 +199,8 @@ export class QueryBuilder {
     return exprs.length === 0
       ? ''
       : exprs.length === 1
-        ? exprs[0]
-        : exprs.map(x => `(${x})`).join(' and ');
+      ? exprs[0]
+      : exprs.map(x => `(${x})`).join(' and ');
   }
 
   private expr(field: SimpleField, operator: string, value: Value | Value[]) {
