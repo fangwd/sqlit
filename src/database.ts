@@ -306,9 +306,9 @@ export class Table {
         const field = this.model.field(name);
         const value = fields[name] as Document;
         if (field instanceof ForeignKeyField && value) {
-          const rows: Document[] = result.map(
-            row => row[field.name] as Document
-          );
+          const rows: Document[] = result
+            .map(row => row[field.name] as Document)
+            .filter(row => row);
           const table = this.db.table(field.referencedField.model);
           const promise = table._resolveRelatedFields(connection, rows, value);
           promises.push(promise);

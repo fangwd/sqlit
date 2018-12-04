@@ -191,5 +191,34 @@ test('append #2', async done => {
   done();
 });
 
+test('select', async done => {
+  const db = helper.connectToDatabase(NAME);
+
+  const post = db.table('post').append({ title: '#3' });
+  db.table('comment').append({ post, content: '#3.1' });
+  db.table('comment').append({ post: null, content: '#.2' });
+
+  await db.flush();
+
+  const rows = await db.table('comment').select(
+    {
+      post: {
+        comments: {
+          content: 'body'
+        }
+      }
+    },
+    { where: { content_like: '#%' } }
+  );
+
+  expect(rows.length).toBe(2);
+
+  const row = rows.find(row => row.post === null);
+
+  expect(row.content).toBe('#.2');
+
+  done();
+});
+
 // https://github.com/nodejs/node/issues/8071
 require('util').inspect.defaultOptions.customInspect = false;
