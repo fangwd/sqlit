@@ -143,8 +143,10 @@ export class QueryBuilder {
             const [name, operator] = splitKey(keys[0] as string);
             if (name === field.referencedField.name) {
               const value = query[keys[0]] as Value;
-              exprs.push(this.expr(field, operator, value));
-              continue;
+              if (isValue(value)) {
+                exprs.push(this.expr(field, operator, value));
+                continue;
+              }
             }
             const relatedField = field.referencedField.model.field(name);
             if (relatedField instanceof RelatedField) {
