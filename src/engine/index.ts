@@ -42,7 +42,7 @@ export abstract class Connection implements Dialect {
     return this.query('rollback');
   }
 
-  abstract disconnect(): Promise<any>;
+  abstract end(): Promise<void>;
   abstract release();
 
   abstract escape(s: string): string;
@@ -54,7 +54,7 @@ export abstract class ConnectionPool implements Dialect {
   name: string;
 
   abstract getConnection(): Promise<Connection>;
-  abstract close(): Promise<any>;
+  abstract end(): Promise<void>;
 
   abstract escape(s: string): string;
   abstract escapeId(name: string): string;

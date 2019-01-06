@@ -24,7 +24,7 @@ class _ConnectionPool extends ConnectionPool {
     });
   }
 
-  close(): Promise<any> {
+  end(): Promise<void> {
     return new Promise((resolve, reject) => {
       return this.pool.end(error => {
         if (error) reject(error);
@@ -133,7 +133,7 @@ class _Connection extends Connection {
     });
   }
 
-  disconnect(): Promise<any> {
+  end(): Promise<void> {
     return new Promise((resolve, reject) => {
       this.connection.end(err => {
         if (err) reject(err);
