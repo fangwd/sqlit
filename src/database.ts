@@ -173,6 +173,10 @@ export class Database {
     );
   }
 
+  end(): Promise<void> {
+    return this.pool ? this.pool.end() : Promise.resolve();
+  }
+
   clear() {
     for (const name in this.tableMap) {
       this.tableMap[name].clear();
