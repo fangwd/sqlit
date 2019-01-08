@@ -79,6 +79,7 @@ export const RecordProxy = {
 };
 
 export class Record {
+  [key: string]: any;
   __table: Table;
   __data: { [key: string]: FieldValue };
   __state: FlushState;
