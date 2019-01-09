@@ -1355,7 +1355,7 @@ export function toRow(value: Value, field: SimpleField): Value {
   if (value && /date|time/i.test(field.column.type)) {
     return new Date(value as string)
       .toISOString()
-      .slice(0, 19)
+      .slice(0, 23) // datetime(3)
       .replace('T', ' ');
   }
   return value;
