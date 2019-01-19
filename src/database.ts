@@ -80,6 +80,7 @@ export class Database {
         getInformationSchema(connection, this.name).then(schemaInfo => {
           const schema = new Schema(schemaInfo, config);
           this.setSchema(schema);
+          connection.release();
           resolve(schema);
         })
       )
