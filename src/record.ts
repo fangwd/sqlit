@@ -254,7 +254,7 @@ export class Record {
       const lhs = this.__getValue(name);
       const rhs = existing.__getValue(name);
       // TODO: type wise
-      if (lhs === rhs) {
+      if (lhs == rhs) {
         this.__state.dirty.delete(name);
       }
     }
