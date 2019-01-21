@@ -791,6 +791,16 @@ test('append', () => {
   expect(table.recordList.length).toBe(2);
 });
 
+test('append #2', async () => {
+  const db = helper.connectToDatabase(NAME);
+  const email = 'john@example.com';
+  db.table('user').append({ email, firstName: 'John' });
+  db.table('user').append({ email, firstName: 'Joe' });
+  await db.flush();
+  const user = await db.table('user').get({ email });
+  expect(user.firstName).toBe('Joe');
+});
+
 test('claim', async done => {
   const db = helper.connectToDatabase(NAME);
   const table = db.table('order');
