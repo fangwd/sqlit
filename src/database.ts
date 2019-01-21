@@ -1087,6 +1087,18 @@ export class Table {
       this._mapPut(record);
       return record;
     }
+    for (const name in data) {
+      if (existing[name] != data[name]) {
+        const field = record.__table.model.field(name);
+        if (field instanceof ForeignKeyField) {
+          const model = field.referencedField.model;
+          if (pkOf(model, existing[name]) == pkOf(model, data[name])) {
+            continue;
+          }
+        }
+        existing[name] = data[name];
+      }
+    }
     return existing;
   }
 
@@ -1451,4 +1463,13 @@ export function isValue(value): boolean {
   }
 
   return value instanceof Date;
+}
+
+function pkOf(model: Model, data: unknown): Value {
+  if (isValue(data)) return <Value>data;
+  const pk = model.keyField();
+  if (pk instanceof ForeignKeyField) {
+    return pkOf(pk.referencedField.model, (<Document>data)[pk.name]);
+  }
+  return <Value>(<Document>data)[pk.name];
 }
