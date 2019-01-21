@@ -22,7 +22,7 @@ export const RecordProxy = {
       const field = model.field(name);
       if (field instanceof ForeignKeyField) {
         if (record.__data[name] !== undefined) {
-          throw Error('Reassignment');
+          throw Error(`Reassigning ${record.__table.name}.${name}`);
         } else {
           if (value instanceof Record || value === null) {
             record.__data[name] = value;
