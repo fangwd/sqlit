@@ -153,7 +153,9 @@ export class QueryBuilder {
               const field = relatedField.referencingField;
               const builder = new QueryBuilder(field.model, this.dialect);
               const rhs = builder.select(field, query[keys[0]] as Filter);
-              const lhs = this.dialect.escapeId(field.column.name);
+              const lhs = this.alias
+                ? `${this.escapeId(this.alias)}.${this.escapeId(field)}`
+                : this.escapeId(field);
               exprs.push(`${lhs} in (${rhs})`);
               continue;
             }
