@@ -155,9 +155,13 @@ export class QueryBuilder {
                 referencingField.model,
                 this.dialect
               );
-              const rhs = builder.select(referencingField, query[
-                keys[0]
-              ] as Filter);
+              let filter = query[keys[0]] as Filter;
+              if (relatedField.throughField && relatedField.name === keys[0]) {
+                filter = {
+                  [relatedField.throughField.name]: filter
+                };
+              }
+              const rhs = builder.select(referencingField, filter);
               const lhs = this.alias
                 ? `${this.escapeId(this.alias)}.${this.escapeId(field)}`
                 : this.escapeId(field);

@@ -46,8 +46,7 @@ test('example query', done => {
     }
   };
 
-  db
-    .table('user')
+  db.table('user')
     .select('*', { where: args })
     .then(rows => {
       expect(rows.length).toBe(1);
@@ -124,8 +123,7 @@ test('many to many', done => {
   };
 
   const db = helper.connectToDatabase(NAME, domain);
-  db
-    .table('category')
+  db.table('category')
     .select('*', { where: args })
     .then(rows => {
       expect(rows.length).toBe(1);
@@ -141,8 +139,7 @@ test('and', done => {
   const model = domain.model('user');
   const args = { and: [{ name_like: '%Apple%' }, { price_lt: 6 }] };
 
-  db
-    .table('product')
+  db.table('product')
     .select('*', { where: args })
     .then(rows => {
       expect(rows.length).toBe(1);
@@ -164,8 +161,7 @@ test('or', done => {
       }
     ]
   };
-  db
-    .table('product')
+  db.table('product')
     .select('*', { where: args })
     .then(rows => {
       expect(rows.length).toBe(4);
@@ -192,8 +188,7 @@ test('not', done => {
     ]
   };
 
-  db
-    .table('product')
+  db.table('product')
     .select('*', { where: args })
     .then(rows => {
       expect(rows.length).toBe(2);
@@ -211,6 +206,16 @@ test('order by', () => {
   const sql = builder.select('*', args.where, args.orderBy);
   expect(/`t\d\`.`email`\s+ASC/i.test(sql)).toBe(true);
   expect(/`t\d\`.`code`\s+DESC/i.test(sql)).toBe(true);
+});
+
+test('throughField', async () => {
+  const db = helper.connectToDatabase(NAME);
+  const args = [
+    { ancestor: { products: [{ id: 3 }] } },
+    { descendant: { products: [{ id: 3 }] } }
+  ];
+  const rows = await db.table('category_tree').select('*', { where: args });
+  expect(rows.length).toBeGreaterThan(0);
 });
 
 const DefaultEscape = {
