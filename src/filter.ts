@@ -150,9 +150,14 @@ export class QueryBuilder {
             }
             const relatedField = field.referencedField.model.field(name);
             if (relatedField instanceof RelatedField) {
-              const field = relatedField.referencingField;
-              const builder = new QueryBuilder(field.model, this.dialect);
-              const rhs = builder.select(field, query[keys[0]] as Filter);
+              const referencingField = relatedField.referencingField;
+              const builder = new QueryBuilder(
+                referencingField.model,
+                this.dialect
+              );
+              const rhs = builder.select(referencingField, query[
+                keys[0]
+              ] as Filter);
               const lhs = this.alias
                 ? `${this.escapeId(this.alias)}.${this.escapeId(field)}`
                 : this.escapeId(field);
