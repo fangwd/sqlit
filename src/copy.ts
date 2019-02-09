@@ -13,7 +13,7 @@ export function copyRecord(
   options?: CopyOptions
 ): Promise<Record> {
   const table = record.__table;
-  const filterMap = buildTableFilters(record, options);
+  const filterMap = buildTableFilters(record, options, true);
   const db = new Database(table.db.pool, table.db.schema);
   return selectRows(filterMap, db).then(() => {
     const model = table.model;
@@ -25,9 +25,22 @@ export function copyRecord(
   });
 }
 
+export async function selectTree(
+  table: Table,
+  filter: Filter,
+  options?: CopyOptions
+): Promise<Document> {
+  const record = table.append(filter);
+  const filterMap = buildTableFilters(record, options, false);
+  return selectRows(filterMap, table.db).then(() => {
+    return {};
+  });
+}
+
 function buildTableFilters(
   record: Record,
-  options: CopyOptions
+  options: CopyOptions,
+  uniqueKeysOnly: boolean
 ): Map<Table, Filter> {
   const db = record.__table.db;
   const map = new Map();
@@ -49,6 +62,49 @@ function buildTableFilters(
 
   map.set(record.__table, [record.__data]);
 
+  const handleField = (table: Table, field: ForeignKeyField) => {
+    const referencedTable = db.table(field.referencedField.model);
+
+    if (map.has(referencedTable) && referencedTable !== table) {
+      const filter = map.get(referencedTable);
+
+      if (map.has(table)) {
+        const current = map.get(table);
+        if (Array.isArray(current)) {
+          current.push({ [field.name]: filter });
+        } else {
+          map.set(table, [current, { [field.name]: filter }]);
+        }
+      } else {
+        map.set(table, { [field.name]: filter });
+      }
+
+      if (field.relatedField && field.relatedField.throughField) {
+        const related = field.relatedField;
+        const table = db.table(related.throughField.referencedField);
+
+        let value: Filter = JSON.parse(JSON.stringify(filter));
+
+        if (!related.throughField.relatedField.throughField) {
+          value = { [field.name]: JSON.parse(JSON.stringify(filter)) };
+        }
+
+        const name = related.throughField.relatedField.name;
+
+        if (map.has(table)) {
+          const current = map.get(table);
+          if (Array.isArray(current)) {
+            current.push({ [name]: value });
+          } else {
+            map.set(table, [current, { [name]: value }]);
+          }
+        } else {
+          map.set(table, { [name]: value });
+        }
+      }
+    }
+  };
+
   while (true) {
     let added = 0;
 
@@ -59,26 +115,22 @@ function buildTableFilters(
         continue;
       }
 
-      for (const key of table.model.uniqueKeys) {
-        for (const field of key.fields) {
-          if (field instanceof ForeignKeyField) {
-            const referencedTable = db.table(field.referencedField.model);
-            if (map.has(referencedTable) && referencedTable !== table) {
-              const filter = map.get(referencedTable);
-              if (map.has(table)) {
-                const current = map.get(table);
-                if (Array.isArray(current)) {
-                  current.push({ [field.name]: filter });
-                } else {
-                  map.set(table, [current, { [field.name]: filter }]);
-                }
-              } else {
-                map.set(table, { [field.name]: filter });
-              }
+      if (uniqueKeysOnly) {
+        for (const key of table.model.uniqueKeys) {
+          for (const field of key.fields) {
+            if (field instanceof ForeignKeyField) {
+              handleField(table, field);
             }
           }
         }
+      } else {
+        for (const field of table.model.fields) {
+          if (field instanceof ForeignKeyField) {
+            handleField(table, field);
+          }
+        }
       }
+
       if (map.has(table)) {
         added++;
       }

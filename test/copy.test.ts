@@ -1,4 +1,5 @@
 import helper = require('./helper');
+import { Schema } from '../src';
 
 const NAME = 'copy';
 
@@ -110,4 +111,29 @@ test('replace', async done => {
   }
 
   done();
+});
+
+test('selectTree', async () => {
+  const db = helper.connectToDatabase(NAME);
+
+  await db.table('order').selectTree({ id: 1 });
+  expect(db.table('order_item').recordList.length).toBeGreaterThan(0);
+  expect(db.table('order_shipping').recordList.length).toBeGreaterThan(0);
+  db.clear();
+
+  await db.table('product').selectTree({ id: 3 });
+  expect(db.table('category_tree').recordList.length).toBeGreaterThan(0);
+  db.clear();
+
+  const options = {
+    models: [
+      {
+        table: 'product_category',
+        fields: [{ column: 'category_id', throughField: null }]
+      }
+    ]
+  };
+  const schema = new Schema(helper.getExampleData(), options);
+  const db2 = helper.connectToDatabase(NAME, schema);
+  await db2.table('product').selectTree({ id: 3 });
 });
