@@ -1,6 +1,6 @@
 {
   "name": "sqlit",
-  "version": "1.6.6",
+  "version": "1.6.7",
   "description": "Sqlit - A library that makes database access easy and fun",
   "main": "./dist/index.js",
   "files": [
@@ -32,14 +32,14 @@
   },
   "scripts": {
     "test": "jest --runInBand",
-    "build": "tsc -D"
+    "build": "tsc"
   },
   "jest": {
     "transform": {
       "^.+\\.tsx?$": "ts-jest"
     },
+    "testEnvironment": "node",
     "testRegex": "/test/.+\\.test.ts",
-    "testURL": "http://localhost/",
     "moduleFileExtensions": [
       "ts",
       "tsx",
