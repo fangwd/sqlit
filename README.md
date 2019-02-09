@@ -223,3 +223,15 @@ const docs = await db.table('category').xselect(config);
 ```
 
 More examples can be found in the `test` folder.
+
+# Debugging
+
+## Using Chrome
+
+1. Put a `debugger` statement in the source code
+2. Start node:
+
+`$ node --inspect-brk ./node_modules/jest/bin/jest.js --runInBand`
+
+3. Visit `chrome://inspect`
+
