@@ -1,11 +1,5 @@
 import { Table, Document, _toCamel, isEmpty, isValue } from './database';
-import {
-  SimpleField,
-  ForeignKeyField,
-  UniqueKey,
-  Field,
-  RelatedField
-} from './model';
+import { SimpleField, ForeignKeyField, UniqueKey, RelatedField } from './model';
 import { FlushState, FlushMethod, flushRecord } from './flush';
 import { Row, Value } from './engine';
 import { copyRecord } from './copy';
@@ -21,8 +15,17 @@ export const RecordProxy = {
       const model = record.__table.model;
       const field = model.field(name);
       if (field instanceof ForeignKeyField) {
-        if (record.__data[name] !== undefined) {
-          throw Error(`Reassigning ${record.__table.name}.${name}`);
+        let lhs: Value;
+        if (record.__data[name] instanceof Record) {
+          const rec = record.__data[name] as Record;
+          lhs = rec.__getValue(field.name);
+        } else {
+          lhs = record.__data[name] as Value;
+        }
+        const rhs: Value = isValue(value) ? value : model.valueOf(value, field);
+        if (lhs !== undefined && lhs != rhs) {
+          const key = `${record.__table.name}.${name}`;
+          throw Error(`Reassigning ${key}: ${lhs} (new: ${rhs})`);
         } else {
           if (value instanceof Record || value === null) {
             record.__data[name] = value;
