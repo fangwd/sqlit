@@ -35,6 +35,7 @@ import { encodeFilter, QueryBuilder, AND } from './filter';
 import { toArray } from './misc';
 
 import { createNode, moveSubtree, deleteSubtree, treeQuery } from './tree';
+import { selectTree, CopyOptions as SelectTreeOptions } from './copy';
 
 export class ClosureTable {
   constructor(
@@ -1092,8 +1093,10 @@ export class Table {
         const field = record.__table.model.field(name);
         if (field instanceof ForeignKeyField) {
           const model = field.referencedField.model;
-          if (pkOf(model, existing[name]) == pkOf(model, data[name])) {
-            continue;
+          if (existing[name] !== undefined) {
+            if (pkOf(model, existing[name]) == pkOf(model, data[name])) {
+              continue;
+            }
           }
         }
         existing[name] = data[name];
@@ -1317,6 +1320,13 @@ export class Table {
         return [].concat.apply([], docs.map(doc => mapDocument(doc, config)));
       }
     });
+  }
+
+  selectTree(
+    filter: Filter,
+    options?: SelectTreeOptions
+  ): Promise<Document | null> {
+    return selectTree(this, filter, options);
   }
 }
 
