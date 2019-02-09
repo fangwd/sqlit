@@ -4,11 +4,14 @@ insert into user (id, email, first_name, last_name, status) values
   (3, 'grace@example.com', 'Grace', 'White', 1);
 insert into `group`(id, name) values
   (1, 'ADMIN'),
-  (2, 'STAFF');
+  (2, 'STAFF'),
+  (3, 'CUSTOMER');
 insert into user_group(group_id, user_id) values
   (1, 1),
   (1, 2),
-  (2, 2);
+  (2, 2),
+  (3, 3),
+  (2, 3);
 insert into category(id, parent_id, name) values
   (1, NULL, 'All'),
   (2, 1, 'Fruit'),
@@ -17,6 +20,9 @@ insert into category(id, parent_id, name) values
   (5, 1, 'Meat' ),
   (6, 5, 'Beef' ),
   (7, 5, 'Lamb' );
+
+insert into category_tree(ancestor_id, descendant_id, distance) values (3, 3, 0);
+
 insert into product (id, sku, name, price, status) values
   (1, 'sku001', 'Australian Apple',  5, 1),
   (2, 'sku002', 'Australian Banana', 6, 1),
