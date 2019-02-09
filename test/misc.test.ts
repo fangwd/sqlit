@@ -55,8 +55,8 @@ test('promiseAll', () => {
 
   promiseAll([createResolve(1), createReject(2), createResolve(3)]).catch(
     errors => {
-      expect(results[0].toBe(true));
-      expect(results[1].toBe(false));
+      expect(results[0]).toBe(true);
+      expect(results[1]).toBe(false);
       expect(results[2]).toBe(true);
       expect(errors[0]).toBe(undefined);
       expect(errors[1]).toBe(2);
