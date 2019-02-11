@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 
 const {
+  pluraliser,
   createConnection,
   getInformationSchema,
-  printSchema
+  printSchema,
+  printSchemaJava
 } = require('../dist');
 
 const getopt = require('../lib/getopt');
@@ -13,7 +15,10 @@ const options = getopt([
   ['-u', '--user'],
   ['-p', '--password'],
   ['  ', '--json', true],
-  ['  ', '--export', true]
+  ['  ', '--export', true],
+  ['  ', '--java', true],
+  ['  ', '--path'],
+  ['  ', '--package']
 ]);
 
 if (options.json || options.export) {
@@ -27,10 +32,15 @@ if (options.json || options.export) {
 
   getInformationSchema(connection, database).then(schema => {
     if (options.export) {
-      console.log(printSchema(schema));
+      if (options.java) {
+        pluraliser.style = 'java';
+        printSchemaJava(schema, options.path, options.package);
+      } else {
+        console.log(printSchema(schema));
+      }
     } else {
       console.log(JSON.stringify(schema, null, 4));
     }
-    connection.disconnect();
+    connection.end();
   });
 }
