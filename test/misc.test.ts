@@ -4,7 +4,8 @@ import {
   setPluralForms,
   toCamelCase,
   toPascalCase,
-  promiseAll
+  promiseAll,
+  pluraliser
 } from '../src/misc';
 
 test('pluralise', () => {
@@ -27,12 +28,19 @@ test('customise plural forms', () => {
   expect(pluralise('special_equipment')).toBe('special_equipment');
 });
 
+test('pluralise - java', () => {
+  pluraliser.style = 'java';
+  pluraliser.forms['foo'] = 'fooSet';
+  expect(pluralise('foo')).toBe('fooSet');
+  expect(pluralise('bar')).toBe('barList');
+});
+
 test('camel/pascal cases', () => {
   expect(toCamelCase('special_equipment')).toBe('specialEquipment');
   expect(toPascalCase('special_equipment')).toBe('SpecialEquipment');
 });
 
-test('promiseAll', () => {
+test('promiseAll', done => {
   const results = Array.apply(null, { length: 3 });
 
   function createResolve(n) {
@@ -54,13 +62,12 @@ test('promiseAll', () => {
   }
 
   promiseAll([createResolve(1), createReject(2), createResolve(3)]).catch(
-    errors => {
+    error => {
       expect(results[0]).toBe(true);
       expect(results[1]).toBe(false);
       expect(results[2]).toBe(true);
-      expect(errors[0]).toBe(undefined);
-      expect(errors[1]).toBe(2);
-      expect(errors[2]).toBe(undefined);
+      expect(error).toBe(2);
+      done();
     }
   );
 });
