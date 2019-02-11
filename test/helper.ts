@@ -148,3 +148,5 @@ export function getId(length: number = 8) {
 export function getDatabaseName(name: string): string {
   return `${DB_NAME}_${name}`;
 }
+
+process.on('unhandledRejection', r => console.log(r));
