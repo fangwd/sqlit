@@ -54,6 +54,8 @@ export {
 } from './filter';
 
 export {
+  pluraliser,
+  pluralise,
   setPluralForm,
   setPluralForms,
   toArray,
@@ -63,4 +65,4 @@ export {
 
 export { Record } from './record';
 
-export { printSchema } from './print';
+export { printSchema, printSchemaJava } from './print';

@@ -1,14 +1,27 @@
-const PLURAL_FORMS = {
-  child: 'children'
+export const pluraliser = {
+  style: 'javascript',
+  forms: {
+    child: 'children'
+  }
 };
 
 export function pluralise(name: string): string {
-  for (const key in PLURAL_FORMS) {
+  const forms = pluraliser.forms;
+
+  if (name in forms) {
+    return forms[name];
+  }
+
+  if (pluraliser.style === 'java') {
+    return name + 'List';
+  }
+
+  for (const key in forms) {
     if (name.endsWith(key)) {
-      return name.substr(0, name.length - key.length) + PLURAL_FORMS[key];
+      return name.substr(0, name.length - key.length) + forms[key];
     }
     if (name.endsWith(_U(key))) {
-      return name.substr(0, name.length - key.length) + _U(PLURAL_FORMS[key]);
+      return name.substr(0, name.length - key.length) + _U(forms[key]);
     }
   }
 
@@ -35,12 +48,12 @@ function _U(s: string): string {
 
 export function setPluralForms(data: { [key: string]: string }): void {
   for (const key in data) {
-    PLURAL_FORMS[key] = data[key];
+    pluraliser.forms[key] = data[key];
   }
 }
 
 export function setPluralForm(singular: string, plural: string): void {
-  PLURAL_FORMS[singular] = plural;
+  pluraliser.forms[singular] = plural;
 }
 
 export function toCamelCase(s: string): string {
