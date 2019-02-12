@@ -1,7 +1,6 @@
-import { Database, Table, Filter, Document, toDocument } from './database';
+import { Database, Table, Filter, Document } from './database';
 import { Model, ForeignKeyField, SimpleField } from './model';
 import { Record } from './record';
-import { Value } from './engine';
 
 export interface CopyOptions {
   filter?: { [key: string]: string | null };
@@ -22,18 +21,6 @@ export function copyRecord(
       record[name] = data[name];
     }
     return flushAll(db).then(() => record);
-  });
-}
-
-export async function selectTree(
-  table: Table,
-  filter: Filter,
-  options?: CopyOptions
-): Promise<Document> {
-  const record = table.append(filter);
-  const filterMap = buildTableFilters(record, options, false);
-  return selectRows(filterMap, table.db).then(() => {
-    return {};
   });
 }
 
