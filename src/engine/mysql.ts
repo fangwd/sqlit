@@ -47,8 +47,6 @@ class _Connection extends Connection {
   connection: any;
   queryCounter: QueryCounter = new QueryCounter();
 
-  private pool: _ConnectionPool;
-
   constructor(options, connected?: boolean) {
     super();
     if (connected) {

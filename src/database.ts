@@ -35,7 +35,7 @@ import { encodeFilter, QueryBuilder, AND } from './filter';
 import { toArray } from './misc';
 
 import { createNode, moveSubtree, deleteSubtree, treeQuery } from './tree';
-import { selectTree, CopyOptions as SelectTreeOptions } from './copy';
+import { selectTree, FieldOptions } from './select';
 
 export class ClosureTable {
   constructor(
@@ -251,7 +251,7 @@ export class Table {
     fields: string | Document,
     options: SelectOptions = {},
     filterThunk?: (builder: QueryBuilder) => string
-  ): Promise<Row[]> {
+  ): Promise<Document[]> {
     return this.db.pool.getConnection().then(connection =>
       this._select(connection, fields, options, filterThunk).then(result =>
         this._resolveRelatedFields(connection, result, fields).then(result => {
@@ -1322,11 +1322,8 @@ export class Table {
     });
   }
 
-  selectTree(
-    filter: Filter,
-    options?: SelectTreeOptions
-  ): Promise<Document | null> {
-    return selectTree(this, filter, options);
+  selectTree(filter: Filter): Promise<Document | null> {
+    return selectTree(this, filter);
   }
 }
 
