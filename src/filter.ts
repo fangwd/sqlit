@@ -224,7 +224,9 @@ export class QueryBuilder {
           .filter(value => value !== null)
           .map(value => this.escape(field, value));
         if (values.length < value.length) {
-          return `(${lhs} is null or ${lhs} in (${values.join(', ')}))`;
+          return values.length === 0
+            ? `${lhs} is null`
+            : `(${lhs} is null or ${lhs} in (${values.join(', ')}))`;
         } else {
           if (values.length === 0) return 'false';
           return `${lhs} in (${values.join(', ')})`;
