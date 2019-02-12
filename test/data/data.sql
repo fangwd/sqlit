@@ -19,7 +19,8 @@ insert into category(id, parent_id, name) values
   (4, 2, 'Banana'),
   (5, 1, 'Meat' ),
   (6, 5, 'Beef' ),
-  (7, 5, 'Lamb' );
+  (7, 5, 'Lamb' ),
+  (8, 1, 'American Fruit');
 
 insert into category_tree(ancestor_id, descendant_id, distance) values (3, 3, 0);
 
@@ -36,6 +37,7 @@ insert into product_category(product_id, category_id) values
   (1, 3),
   (2, 4),
   (3, 3),
+  (3, 8),
   (4, 4),
   (5, 5),
   (6, 6),
