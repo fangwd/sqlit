@@ -7,7 +7,9 @@
     "sourceMap": true,
     "outDir": "dist",
     "lib": ["es6"],
-    "declaration": true
+    "declaration": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]

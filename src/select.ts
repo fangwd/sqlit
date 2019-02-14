@@ -105,10 +105,10 @@ async function _selectTree(
       }
     }
 
-    for (const [field, option] of fields) {
-      if (mayQuery(querySet, [field], values)) {
-        const filter = { [field.name]: values };
-        await _selectTree(table, filter, option, result, null, querySet);
+    if (fields.length > 0) {
+      if (mayQuery(querySet, fields.map(field => field[0]), values)) {
+        const filter = fields.map(field => ({ [field[0].name]: values }));
+        await _selectTree(table, filter, fields[0][1], result, null, querySet);
       }
     }
   }
@@ -117,14 +117,14 @@ async function _selectTree(
 }
 
 function merge(result: Result, table: Table, rows?: Document[]) {
-  let map = result[table.name];
+  const model = table.model;
+  let map = result[model.name];
 
   if (!map) {
     map = new Map();
-    result[table.name] = map;
+    result[model.name] = map;
   }
   if (rows) {
-    const model = table.model;
     const key = model.keyField();
     for (const row of rows) {
       map.set(model.valueOf(row, key), row);
@@ -150,7 +150,6 @@ export async function selectTree2(
 ): Promise<Result> {
   const result: Result = {};
   const rows = await table.select('*', { where: filter });
-
   merge(result, table, rows);
 
   const selected: Map<Table, number> = new Map([[table, 0]]);
@@ -178,7 +177,7 @@ export async function selectTree2(
 
     if (!next) break;
 
-    const values = [...result[next.parent.name].keys()];
+    const values = [...result[next.parent.model.name].keys()];
 
     if (values.length > 0) {
       const filter = next.keys.map(key => ({
@@ -194,7 +193,7 @@ export async function selectTree2(
             model.valueOf(row, key.relatedField.throughField)
           );
           const table = db.table(key.relatedField.throughField.referencedField);
-          const map = result[table.name];
+          const map = result[table.model.name];
           if (map) {
             values = values.filter(pk => !map.has(pk));
           }

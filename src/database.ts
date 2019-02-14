@@ -35,7 +35,8 @@ import { encodeFilter, QueryBuilder, AND } from './filter';
 import { toArray } from './misc';
 
 import { createNode, moveSubtree, deleteSubtree, treeQuery } from './tree';
-import { selectTree, FieldOptions } from './select';
+import { selectTree, selectTree2, FieldOptions } from './select';
+import { JsonSerialiser } from './serialiser';
 
 export class ClosureTable {
   constructor(
@@ -1322,8 +1323,15 @@ export class Table {
     });
   }
 
-  selectTree(filter: Filter): Promise<Document | null> {
-    return selectTree(this, filter);
+  async selectTree(
+    filter: Filter,
+    options?: FieldOptions
+  ): Promise<Document[] | null> {
+    const data = await (options
+      ? selectTree(this, filter, options)
+      : selectTree2(this, filter));
+    const serialiser = new JsonSerialiser(data);
+    return serialiser.serialise(this.model);
   }
 }
 

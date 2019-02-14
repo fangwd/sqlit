@@ -177,8 +177,8 @@ export class Model {
       : null;
   }
 
-  keyValue(row: Document): Document {
-    return row[this.keyField().name] as Document;
+  keyValue(row: Document): Value {
+    return this.valueOf(row, this.keyField().name);
   }
 
   valueOf(row: Document, name: string | SimpleField): Value {
@@ -523,6 +523,6 @@ export class UniqueKey {
   }
 }
 
-function lcfirst(s: string): string {
+export function lcfirst(s: string): string {
   return s.charAt(0).toLowerCase() + s.slice(1);
 }

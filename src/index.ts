@@ -63,6 +63,10 @@ export {
   toPascalCase
 } from './misc';
 
+export { selectTree } from './select';
+
 export { Record } from './record';
 
 export { printSchema, printSchemaJava } from './print';
+
+export { JsonSerialiser, XstreamSerialiser } from './serialiser';

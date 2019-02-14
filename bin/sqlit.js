@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 
 const {
-  pluraliser,
-  createConnection,
-  getInformationSchema,
+  Database,
   printSchema,
-  printSchemaJava
+  printSchemaJava,
+  pluraliser,
+  XstreamSerialiser,
+  selectTree
 } = require('../dist');
 
 const getopt = require('../lib/getopt');
@@ -18,29 +19,51 @@ const options = getopt([
   ['  ', '--export', true],
   ['  ', '--java', true],
   ['  ', '--path'],
-  ['  ', '--package']
+  ['  ', '--package'],
+  ['  ', '--select'],
+  ['  ', '--xstream', true],
+  ['  ', '--xml', true]
 ]);
 
-if (options.json || options.export) {
-  const database = options.argv[0];
-
-  const connection = createConnection(options.dialect || 'mysql', {
-    user: options.user,
-    password: options.password,
-    database
-  });
-
-  getInformationSchema(connection, database).then(schema => {
-    if (options.export) {
-      if (options.java) {
-        pluraliser.style = 'java';
-        printSchemaJava(schema, options.path, options.package);
-      } else {
-        console.log(printSchema(schema));
-      }
-    } else {
-      console.log(JSON.stringify(schema, null, 4));
+(async function() {
+  const db = new Database({
+    dialect: options.dialect || 'mysql',
+    connection: {
+      user: options.user,
+      password: options.password,
+      database: options.argv[0],
+      timezone: 'Z'
     }
-    connection.end();
   });
-}
+
+  pluraliser.style = 'java';
+
+  await db.buildSchema();
+
+  const schema = db.schema;
+
+  if (options.export) {
+    if (options.java) {
+      printSchemaJava(schema, options.path, options.package);
+    } else {
+      console.log(printSchema(schema));
+    }
+  } else if (options.select) {
+    const [name, value] = options.select.split(':');
+    const table = db.table(name);
+    const pk = table.model.keyField().name;
+    const filter = { [pk]: value };
+    if (options.xstream || options.xml) {
+      const result = await selectTree(table, filter);
+      const serialiser = new XstreamSerialiser(result);
+      console.log(serialiser.serialise(table.model));
+    } else {
+      const result = await table.selectTree(filter);
+      console.log(JSON.stringify(result));
+    }
+  } else {
+    console.log(JSON.stringify(schema.database, null, 4));
+  }
+
+  db.end();
+})();

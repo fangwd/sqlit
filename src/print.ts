@@ -78,6 +78,8 @@ export function printSchemaJava(
   for (const model of schema.models) {
     printModelJava(model, path, packageName);
   }
+
+  printDateTimeConverter(path, packageName);
 }
 
 function printModelJava(model: Model, path: string, packageName: string) {
@@ -90,8 +92,9 @@ function printModelJava(model: Model, path: string, packageName: string) {
       typeName = field.referencedField.model.name;
     } else if (field instanceof SimpleField) {
       typeName = getTypeNameJava(field.column.type);
-      if (typeName === 'Date') {
-        imports.add('java.util.Date');
+      if (/Date/.test(typeName)) {
+        imports.add(`java.time.${typeName}`);
+        imports.add('com.thoughtworks.xstream.annotations.XStreamConverter');
       }
     } else {
       const relatedField = field as RelatedField;
@@ -124,6 +127,9 @@ function printModelJava(model: Model, path: string, packageName: string) {
   lines.push(`public class ${model.name} {`);
 
   for (const [type, name] of members) {
+    if (/Date/.test(type)) {
+      lines.push('@XStreamConverter(DateTimeConverter.class)');
+    }
     lines.push(`private ${type} ${name}`);
   }
 
@@ -154,7 +160,7 @@ function printModelJava(model: Model, path: string, packageName: string) {
 
 function getTypeNameJava(name: string) {
   if (/date|time/i.test(name)) {
-    return 'Date';
+    return 'LocalDateTime';
   }
 
   if (/char|text|string/i.test(name)) {
@@ -174,4 +180,40 @@ function getTypeNameJava(name: string) {
   }
 
   throw Error(`Unknown type '${name}'`);
+}
+
+// LocalDateTime.ofInstant(Instant.parse(s), ZoneOffset.of("+10:30"));
+function printDateTimeConverter(path: string, packageName: string) {
+  const code = `
+  package ${packageName};
+
+  import com.thoughtworks.xstream.converters.Converter;
+  import com.thoughtworks.xstream.converters.MarshallingContext;
+  import com.thoughtworks.xstream.converters.UnmarshallingContext;
+  import com.thoughtworks.xstream.io.HierarchicalStreamReader;
+  import com.thoughtworks.xstream.io.HierarchicalStreamWriter;
+  import java.time.Instant;
+  import java.time.LocalDateTime;
+  import java.time.ZoneOffset;
+
+  public class DateTimeConverter implements Converter {
+
+    public boolean canConvert(Class clazz) {
+      return clazz.equals(LocalDateTime.class);
+    }
+
+    public void marshal(Object value, HierarchicalStreamWriter writer, MarshallingContext context) {
+      LocalDateTime dateTime = (LocalDateTime) value;
+      writer.setValue(dateTime.toInstant(ZoneOffset.UTC).toString());
+    }
+
+    public Object unmarshal(HierarchicalStreamReader reader, UnmarshallingContext context) {
+      LocalDateTime dateTime =
+          LocalDateTime.ofInstant(Instant.parse(reader.getValue()), ZoneOffset.UTC);
+      return dateTime;
+    }
+  }
+  `;
+  path = join(path, packageName.replace(/\./g, '/'), 'DateTimeConverter.java');
+  writeFileSync(path, code);
 }
