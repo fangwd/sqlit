@@ -102,7 +102,9 @@ function printModelJava(model: Model, path: string, packageName: string) {
         typeName = relatedField.referencingField.model.name;
       } else {
         const relatedField = field as RelatedField;
-        const name = relatedField.referencingField.model.name;
+        const name = relatedField.throughField
+          ? relatedField.throughField.referencedField.model.name
+          : relatedField.referencingField.model.name;
         if (relatedField.referencingField.isUnique()) {
           typeName = name;
         } else {
