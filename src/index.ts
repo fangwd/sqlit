@@ -65,8 +65,8 @@ export {
 
 export { selectTree } from './select';
 
-export { Record } from './record';
+export { Record, RecordProxy } from './record';
 
-export { printSchema, printSchemaJava } from './print';
+export { printSchema, printSchemaJava, printSchemaTypeScript } from './print';
 
 export { JsonSerialiser, XstreamSerialiser } from './serialiser';

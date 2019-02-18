@@ -4,6 +4,7 @@ const {
   Database,
   printSchema,
   printSchemaJava,
+  printSchemaTypeScript,
   pluraliser,
   XstreamSerialiser,
   selectTree
@@ -18,6 +19,7 @@ const options = getopt([
   ['  ', '--json', true],
   ['  ', '--export', true],
   ['  ', '--java', true],
+  ['  ', '--typescript', true],
   ['  ', '--path'],
   ['  ', '--package'],
   ['  ', '--select'],
@@ -45,6 +47,8 @@ const options = getopt([
   if (options.export) {
     if (options.java) {
       printSchemaJava(schema, options.path, options.package);
+    } else if (options.typescript) {
+      console.log(printSchemaTypeScript(schema));
     } else {
       console.log(printSchema(schema));
     }

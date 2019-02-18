@@ -42,6 +42,55 @@ export function printSchema(
   return lines.join('\n');
 }
 
+export function printSchemaTypeScript(
+  schema: Schema | SchemaInfo,
+  base: string = 'Model',
+  column: string = 'Column'
+): string {
+  if (!(schema instanceof Schema)) {
+    schema = new Schema(schema);
+  }
+
+  const lines = [
+    `import {${base}, ${column}, db} from './${base.toLowerCase()}'`,
+    ''
+  ];
+
+  for (const model of schema.models) {
+    lines.push(`export class ${model.name} extends ${base}`);
+    lines.push(`{`);
+    for (const field of model.fields) {
+      lines.push('');
+      let typeName;
+      if (field instanceof ForeignKeyField) {
+        lines.push(`@${column}()`);
+        typeName = field.referencedField.model.name;
+      } else if (field instanceof SimpleField) {
+        lines.push(`@${column}()`);
+        typeName = getTypeName(field.config.userType || field.column.type);
+      } else {
+        const relatedField = field as RelatedField;
+        typeName = relatedField.throughField
+          ? relatedField.throughField.referencedField.model.name
+          : relatedField.referencingField.model.name;
+        if (!relatedField.referencingField.isUnique()) {
+          typeName += '[]';
+        }
+      }
+      lines.push(`${field.name}!: ${typeName};`);
+    }
+    lines.push('');
+    lines.push(`constructor(data?: Partial<${model.name}>)`);
+    lines.push('{');
+    lines.push(`super(db.table('${model.table.name}'), data);`);
+    lines.push('}');
+    lines.push(`}`);
+    lines.push('');
+  }
+
+  return lines.join('\n');
+}
+
 function getTypeName(name: string) {
   if (/date|time/i.test(name)) {
     return 'Date';
