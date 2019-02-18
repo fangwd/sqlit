@@ -593,6 +593,7 @@ export class Table {
   }
 
   _get(connection: Connection, key: Value | Filter): Promise<Document> {
+    if (key === undefined) throw Error(`Bad filter`);
     if (key === null || typeof key !== 'object') {
       key = {
         [this.model.keyField().name]: key
