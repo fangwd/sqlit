@@ -21,6 +21,7 @@ export interface ColumnInfo {
   size?: number;
   nullable?: boolean;
   autoIncrement?: boolean;
+  default?: Value;
 }
 
 export interface ConstraintInfo {
