@@ -3,6 +3,7 @@ import { Model, ForeignKeyField, RelatedField } from './model';
 import { Document, isValue } from './database';
 import { Value } from './engine';
 import { lcfirst } from './model';
+import { shouldSkip } from './print';
 
 class DocumentMap {
   map: Map<Model, Map<Value, number>>;
@@ -166,19 +167,23 @@ export class XstreamSerialiser {
     this.lines = [];
   }
 
-  serialise(model: Model): string {
+  serialise(model: Model, types: string[] = []): string {
     if (!this.data[model.name]) return '';
     this.data[model.name].forEach((doc, value) => {
       const id = this.map.add(model, value);
       this.lines.push(`<${lcfirst(model.name)} id="${id}">`);
-      this.pushFields(model, doc);
+      this.pushFields(model, doc, types);
       this.lines.push(`</${lcfirst(model.name)}>`);
     });
     return this.lines.join('\n');
   }
 
-  private pushFields(rootModel: Model, root: Document) {
+  private pushFields(rootModel: Model, root: Document, types: string[]) {
     for (const field of rootModel.fields) {
+      if (shouldSkip(field, { types })) {
+        continue;
+      }
+
       if (field instanceof ForeignKeyField) {
         if (!root[field.name]) continue;
 
@@ -195,7 +200,7 @@ export class XstreamSerialiser {
             if (doc) {
               const id = this.map.add(model, value);
               this.lines.push(`<${field.name} id="${id}">`);
-              this.pushFields(model, doc);
+              this.pushFields(model, doc, types);
               this.lines.push(`</${field.name}>`);
             }
           }
@@ -225,7 +230,11 @@ export class XstreamSerialiser {
               } else {
                 const id = this.map.add(model2, value2);
                 this.lines.push(`<${name} id="${id}">`);
-                this.pushFields(model2, this.data[model2.name].get(value2));
+                this.pushFields(
+                  model2,
+                  this.data[model2.name].get(value2),
+                  types
+                );
                 this.lines.push(`</${name}>`);
               }
             } else {
@@ -236,7 +245,7 @@ export class XstreamSerialiser {
               } else {
                 const id = this.map.add(model, value);
                 this.lines.push(`<${name} id="${id}">`);
-                this.pushFields(model, doc);
+                this.pushFields(model, doc, types);
                 this.lines.push(`</${name}>`);
               }
             }
@@ -251,10 +260,6 @@ export class XstreamSerialiser {
       }
     }
   }
-}
-
-function isRef(model: Model, doc: Document) {
-  return Object.keys(doc).length < model.fields.length;
 }
 
 function toValue(model: Model, data: Document | Value): Value {

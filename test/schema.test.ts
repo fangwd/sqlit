@@ -1,4 +1,4 @@
-import { Schema } from '../src/model';
+import { Schema, setModelName, SchemaConfig } from '../src/model';
 import { getInformationSchema } from '../src/engine';
 import helper = require('./helper');
 
@@ -18,4 +18,25 @@ test('getInformationSchema', async done => {
   expect(model.primaryKey.fields[0].name).toBe('order');
   expect(model.getForeignKeyCount(schema.model('order'))).toBe(1);
   done();
+});
+
+test('setModelName', () => {
+  const schema = new Schema(helper.getExampleData());
+  const model = schema.model('post');
+  const config: SchemaConfig = { models: [{ table: 'post', name: 'Post' }] };
+  setModelName(config, model, 'WebPost');
+  {
+    const model = config.models.find(entry => entry.table === 'post');
+    expect(model.name).toBe('WebPost');
+  }
+  {
+    const model = config.models.find(entry => entry.table === 'user');
+    const field = model.fields.find(entry => entry.column === 'first_post_id');
+    expect(field.name).toBe('firstWebPost');
+  }
+  {
+    const model = config.models.find(entry => entry.table === 'comment');
+    const field = model.fields.find(entry => entry.column === 'post_id');
+    expect(field.name).toBe('webPost');
+  }
 });

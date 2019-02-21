@@ -1,4 +1,4 @@
-import { Schema, SchemaInfo, Model } from './model';
+import { Schema, SchemaInfo, Model, Field } from './model';
 import { SimpleField, ForeignKeyField, RelatedField } from '.';
 import { writeFileSync } from 'fs';
 import { join } from 'path';
@@ -52,6 +52,7 @@ export function printSchemaTypeScript(
   }
 
   const lines = [
+    `import {Filter, Value, ForeignKeyField} from 'sqlit'`,
     `import {${base}, ${column}, db} from './${base.toLowerCase()}'`,
     ''
   ];
@@ -59,6 +60,9 @@ export function printSchemaTypeScript(
   for (const model of schema.models) {
     lines.push(`export class ${model.name} extends ${base}`);
     lines.push(`{`);
+
+    const table = model.table;
+
     for (const field of model.fields) {
       lines.push('');
       let typeName;
@@ -79,11 +83,69 @@ export function printSchemaTypeScript(
       }
       lines.push(`${field.name}!: ${typeName};`);
     }
+
     lines.push('');
     lines.push(`constructor(data?: Partial<${model.name}>)`);
     lines.push('{');
-    lines.push(`super(db.table('${model.table.name}'), data);`);
+    lines.push(`super(db.table('${table.name}'), data);`);
     lines.push('}');
+
+    lines.push('');
+
+    const type = `Promise<${model.name} | null>`;
+
+    lines.push(`static async get(key: Value | Filter):${type} {
+      const row = await db.table('${table.name}').get(key);
+      return row ? new ${model.name}(row) : null;
+    }`);
+
+    lines.push('');
+
+    lines.push(`
+    __set(data: { [key: string]: any }) {
+      for (const name in data) {
+        const value = data[name];
+        if (value === null || value === undefined) {
+          this._set(name, null);
+          continue;
+        }
+        switch(name) {
+    `);
+
+    for (const field of model.fields) {
+      if (field instanceof ForeignKeyField) {
+        lines.push(`case '${field.name}':
+          this.${field.name} = new ${field.referencedField.model.name}(value);
+          break;
+        `);
+      }
+    }
+
+    lines.push(`default:
+          this._set(name, value);
+          break;
+        }
+      }
+    }`);
+
+    for (const field of model.fields) {
+      if (field instanceof ForeignKeyField) {
+        lines.push('');
+        const name = field.name.charAt(0).toUpperCase() + field.name.slice(1);
+        const type = field.referencedField.model.name;
+        const promise = `Promise<${type}|null>`;
+        lines.push(`async get${name}():${promise} {
+          const field = this.table.model.field('${field.name}');
+          const row = await super.get(field as ForeignKeyField);
+          if (row) {
+            this.${field.name} =  new ${type}(row);
+            return this.${field.name};
+          }
+          return null;
+        }`);
+      }
+    }
+
     lines.push(`}`);
     lines.push('');
   }
@@ -115,27 +177,64 @@ function getTypeName(name: string) {
   throw Error(`Unknown type '${name}'`);
 }
 
-export function printSchemaJava(
+interface ExportOptions {
+  path?: string;
+  package?: string;
+  types?: string[];
+}
+
+export function shouldSkip(entry: Model | Field, options: ExportOptions) {
+  if (!options.types || options.types.length === 0) {
+    return false;
+  }
+
+  if (entry instanceof Model) {
+    return (
+      options.types.indexOf(entry.table.name) === -1 &&
+      options.types.indexOf(entry.name) === -1
+    );
+  }
+
+  if (entry instanceof ForeignKeyField) {
+    return shouldSkip(entry.referencedField.model, options);
+  }
+
+  if (entry instanceof RelatedField) {
+    if (entry.throughField) {
+      return shouldSkip(entry.throughField.referencedField.model, options);
+    } else {
+      return shouldSkip(entry.referencingField.model, options);
+    }
+  }
+
+  return false;
+}
+
+export function exportSchemaJava(
   schema: Schema | SchemaInfo,
-  path: string,
-  packageName: string
+  options: ExportOptions
 ) {
   if (!(schema instanceof Schema)) {
     schema = new Schema(schema);
   }
 
+  options = { path: '.', package: '', types: [], ...options };
+
   for (const model of schema.models) {
-    printModelJava(model, path, packageName);
+    if (!shouldSkip(model, options)) {
+      writeModelJava(model, options);
+    }
   }
 
-  printDateTimeConverter(path, packageName);
+  printDateTimeConverter(options);
 }
 
-function printModelJava(model: Model, path: string, packageName: string) {
+function writeModelJava(model: Model, options: ExportOptions) {
   const imports: Set<string> = new Set();
   const members: [string, string][] = [];
   imports.add('com.thoughtworks.xstream.annotations.XStreamAlias');
   for (const field of model.fields) {
+    if (shouldSkip(field, options)) continue;
     let typeName;
     if (field instanceof ForeignKeyField) {
       typeName = field.referencedField.model.name;
@@ -167,8 +266,6 @@ function printModelJava(model: Model, path: string, packageName: string) {
 
   const lines = [];
 
-  lines.push(`package ${packageName}`);
-
   for (const name of imports) {
     lines.push(`import ${name};`);
   }
@@ -198,15 +295,13 @@ function printModelJava(model: Model, path: string, packageName: string) {
 
   lines.push('}');
 
-  path = join(path, packageName.replace(/\./g, '/'), model.name + '.java');
-
   const code = lines
     .join(';\n')
     .replace(/\{;/g, '{')
     .replace(/\};/g, '}')
     .replace(/(@.+?);/g, '$1');
 
-  writeFileSync(path, code);
+  writeFileJava(model.name, code, options);
 }
 
 function getTypeNameJava(name: string) {
@@ -234,10 +329,8 @@ function getTypeNameJava(name: string) {
 }
 
 // LocalDateTime.ofInstant(Instant.parse(s), ZoneOffset.of("+10:30"));
-function printDateTimeConverter(path: string, packageName: string) {
+function printDateTimeConverter(options: ExportOptions) {
   const code = `
-  package ${packageName};
-
   import com.thoughtworks.xstream.converters.Converter;
   import com.thoughtworks.xstream.converters.MarshallingContext;
   import com.thoughtworks.xstream.converters.UnmarshallingContext;
@@ -265,6 +358,22 @@ function printDateTimeConverter(path: string, packageName: string) {
     }
   }
   `;
-  path = join(path, packageName.replace(/\./g, '/'), 'DateTimeConverter.java');
-  writeFileSync(path, code);
+
+  writeFileJava('DateTimeConverter', code, options);
+}
+
+function writeFileJava(
+  className: string,
+  code: string,
+  options: ExportOptions
+) {
+  const path = join(
+    options.path,
+    options.package.replace(/\./g, '/'),
+    `${className}.java`
+  );
+  writeFileSync(
+    path,
+    options.package ? `package ${options.package};\n${code}` : code
+  );
 }

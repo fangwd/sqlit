@@ -7,7 +7,7 @@ import {
   ConnectionPool
 } from '../src/engine';
 
-import { Schema } from '../src/model';
+import { Schema, Model } from '../src/model';
 import { Database } from '../src/database';
 
 const DB_TYPE = process.env.DB_TYPE || 'mysql';
@@ -149,4 +149,66 @@ export function getDatabaseName(name: string): string {
   return `${DB_NAME}_${name}`;
 }
 
+/*
+const { parseString } = require('xml2js');
+parseString(fs.readFileSync(options.validate).toString(), (err, res) => {
+  if (err) throw err;
+  const keys = Object.keys(res);
+  const key = keys[0].charAt(0).toUpperCase() + keys[0].slice(1);
+  validateXstream(schema.model(key), res[keys[0]]);
+});
+*/
+
+function validateXstream(
+  model: Model,
+  data: Document,
+  map?: Map<string, string>
+) {
+  if (!map) map = new Map();
+
+  const id = _xmlAttr(data, 'id');
+
+  if (id) {
+    map.set(id, model.name);
+  }
+
+  const reference = _xmlAttr(data, 'reference');
+  if (reference) {
+    const type = map.get(reference);
+    if (type !== model.name) {
+      throw Error(`Reference ${reference}: ${type}`);
+    }
+  }
+
+  for (const field of model.fields) {
+    const value = data[field.name];
+    if (value === null || value === undefined) {
+      continue;
+    }
+    if (field instanceof ForeignKeyField) {
+      const model = field.referencedField.model;
+      validateXstream(model, value[0] as Document, map);
+    } else if (field instanceof RelatedField) {
+      const model = field.throughField
+        ? field.throughField.referencedField.model
+        : field.referencingField.model;
+      if (typeof value[0] !== 'object') continue; // [ '\n' ]
+      if (field.referencingField.isUnique()) {
+        validateXstream(model, value[0], map);
+      } else {
+        const name = Object.keys(value[0])[0];
+        if (name !== lcfirst(model.name)) {
+          throw Error(`${name} != ${model.name}`);
+        }
+        for (const entry of value[0][name] as Document[]) {
+          validateXstream(model, entry, map);
+        }
+      }
+    }
+  }
+}
+
+function _xmlAttr(node: any, name: string) {
+  return node.$ && (node.$ as any)[name];
+}
 process.on('unhandledRejection', r => console.log(r));

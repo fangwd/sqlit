@@ -1,13 +1,16 @@
 #!/usr/bin/env node
+const fs = require('fs');
 
 const {
   Database,
   printSchema,
-  printSchemaJava,
+  exportSchemaJava,
   printSchemaTypeScript,
   pluraliser,
   XstreamSerialiser,
-  selectTree
+  selectTree,
+  getReferencingFields,
+  setModelName
 } = require('../dist');
 
 const getopt = require('../lib/getopt');
@@ -24,7 +27,11 @@ const options = getopt([
   ['  ', '--package'],
   ['  ', '--select'],
   ['  ', '--xstream', true],
-  ['  ', '--xml', true]
+  ['  ', '--xml', true],
+  ['  ', '--types'],
+  ['  ', '--references'],
+  ['  ', '--rename'],
+  ['  ', '--config']
 ]);
 
 (async function() {
@@ -40,17 +47,25 @@ const options = getopt([
 
   pluraliser.style = 'java';
 
-  await db.buildSchema();
+  if (options.config) {
+    const config = JSON.parse(fs.readFileSync(options.config).toString());
+    await db.buildSchema(config);
+  } else {
+    await db.buildSchema();
+  }
 
   const schema = db.schema;
 
   if (options.export) {
+    if (options.types) {
+      options.types = options.types.split(/[,\s]+/);
+    }
     if (options.java) {
-      printSchemaJava(schema, options.path, options.package);
+      exportSchemaJava(schema, options);
     } else if (options.typescript) {
-      console.log(printSchemaTypeScript(schema));
+      print(printSchemaTypeScript(schema));
     } else {
-      console.log(printSchema(schema));
+      print(printSchema(schema));
     }
   } else if (options.select) {
     const [name, value] = options.select.split(':');
@@ -60,14 +75,39 @@ const options = getopt([
     if (options.xstream || options.xml) {
       const result = await selectTree(table, filter);
       const serialiser = new XstreamSerialiser(result);
-      console.log(serialiser.serialise(table.model));
+      const types = options.types ? options.types.split(/[,\s]+/) : [];
+      print(serialiser.serialise(table.model, types));
     } else {
       const result = await table.selectTree(filter);
-      console.log(JSON.stringify(result));
+      print(result);
     }
+  } else if (options.references) {
+    const model = schema.model(options.references);
+    const fields = getReferencingFields(model);
+    for (const field of fields) {
+      println(field.displayName());
+    }
+  } else if (options.rename) {
+    const config = JSON.parse(fs.readFileSync(options.config).toString());
+    setModelName(
+      config,
+      schema.model(options.rename),
+      options.argv[options.argv.length - 1]
+    );
+    fs.writeFileSync(options.config, JSON.stringify(config, null, 4));
   } else {
-    console.log(JSON.stringify(schema.database, null, 4));
+    print(schema.database, null, 4);
   }
 
   db.end();
 })();
+
+function print(o) {
+  const s = typeof o === 'string' ? o : JSON.stringify(o);
+  process.stdout.write(s);
+}
+
+function println(o) {
+  print(o);
+  print('\n');
+}

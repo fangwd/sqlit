@@ -10,7 +10,9 @@ export {
   SimpleField,
   ForeignKeyField,
   RelatedField,
-  UniqueKey
+  UniqueKey,
+  getReferencingFields,
+  setModelName
 } from './model';
 
 export {
@@ -67,6 +69,6 @@ export { selectTree } from './select';
 
 export { Record, RecordProxy } from './record';
 
-export { printSchema, printSchemaJava, printSchemaTypeScript } from './print';
+export { printSchema, exportSchemaJava, printSchemaTypeScript } from './print';
 
 export { JsonSerialiser, XstreamSerialiser } from './serialiser';

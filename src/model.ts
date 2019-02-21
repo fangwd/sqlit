@@ -527,3 +527,77 @@ export class UniqueKey {
 export function lcfirst(s: string): string {
   return s.charAt(0).toLowerCase() + s.slice(1);
 }
+
+export function getReferencingFields(model: Model): ForeignKeyField[] {
+  const fields = [];
+  for (const entry of model.domain.models) {
+    for (const field of entry.fields) {
+      if (field instanceof ForeignKeyField) {
+        if (field.referencedField.model === model) {
+          fields.push(field);
+        }
+      }
+    }
+  }
+  return fields;
+}
+
+export function setModelName(config: SchemaConfig, model: Model, name: string) {
+  const re = new RegExp(
+    `(\\b|[^A-Za-z0-9])${model.table.shortName}(\\b|[^A-Za-z0-9])`
+  );
+  for (const field of getReferencingFields(model)) {
+    if (re.test(field.column.name)) {
+      const modelConfig = getModelConfig(config, field.model);
+      if (re.test(field.column.name)) {
+        const s = field.column.name.replace(re, `$1${name}$2`);
+        // cf. ForeignKeyField::constructor
+        setFieldName(
+          modelConfig,
+          field,
+          lcfirst(toCamelCase(s.replace(/_id$/, '')))
+        );
+      }
+    }
+  }
+  const modelConfig = getModelConfig(config, model);
+  modelConfig.name = name;
+  modelConfig.pluralName = lcfirst(pluralise(name));
+}
+
+function getModelConfig(config: SchemaConfig, model: Model) {
+  config.models = config.models || [];
+  let entry = config.models.find(
+    config => config.table === model.table.shortName
+  );
+  if (!entry) {
+    entry = {
+      table: model.table.shortName
+    };
+    config.models.push(entry);
+  }
+  return entry;
+}
+
+function setFieldName(config: ModelConfig, field: SimpleField, name: string) {
+  if (!config.fields) {
+    config.fields = [
+      {
+        column: field.column.name,
+        name
+      }
+    ];
+  } else {
+    const entry = config.fields.find(
+      entry => entry.column === field.column.name
+    );
+    if (!entry) {
+      config.fields.push({
+        column: field.column.name,
+        name
+      });
+    } else {
+      entry.name = name;
+    }
+  }
+}
