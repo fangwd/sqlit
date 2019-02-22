@@ -1,5 +1,12 @@
-import { Schema, SchemaInfo, Model, Field } from './model';
-import { SimpleField, ForeignKeyField, RelatedField } from '.';
+import {
+  Schema,
+  SchemaInfo,
+  Model,
+  Field,
+  SimpleField,
+  ForeignKeyField,
+  RelatedField
+} from './model';
 import { writeFileSync } from 'fs';
 import { join } from 'path';
 

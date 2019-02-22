@@ -696,9 +696,8 @@ async function replaceRecordsIn(
 
   const referencingTables = _getReferencingTables(table);
   const values = table.recordList.map(record => record.__primaryKey());
-
   for (const referencingTable of referencingTables) {
-    if (nameSet.has(referencingTable.table.name)) {
+    if (nameSet.has(referencingTable.table.model.table.shortName)) {
       await _deleteRecords(
         connection,
         referencingTable.table,
@@ -727,8 +726,9 @@ async function _deleteRecords(
   await table._delete(connection, filter);
 
   const referencingTables = _getReferencingTables(table);
+
   for (const referencingTable of referencingTables) {
-    if (nameSet.has(referencingTable.table.name)) {
+    if (nameSet.has(referencingTable.table.model.table.shortName)) {
       await _deleteRecords(
         connection,
         referencingTable.table,

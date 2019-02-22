@@ -205,7 +205,7 @@ export class QueryBuilder {
          */
         const filters = toArray(value);
         exprs.push('not (' + filters.map(c => this.and(c)).join(' or ') + ')');
-      } else {
+      } else if (name !== '*') {
         throw Error(`Bad field: ${this.model.name}.${name}`);
       }
     }
@@ -556,6 +556,9 @@ function extendFilter(model: Model, filter: Filter, fields: Document) {
         if (!filter[name]) {
           filter[name] = {};
         }
+        if (fields[name] === '*') {
+          filter[name]['*'] = true;
+        }
         extendFilter(
           field.referencedField.model,
           filter[name] as Filter,
@@ -582,6 +585,7 @@ function getFields(
       result.push(getKey(field.name));
     }
   }
+
   if (typeof input === 'string') {
     if (input === '*') return result;
   }
@@ -600,7 +604,7 @@ function getFields(
       if (field instanceof ForeignKeyField) {
         const model = field.referencedField.model;
         const fields = getFields(model, value as Document, fieldMap, key);
-        result = result.concat(result, fields);
+        result = result.concat(fields);
       } else if (typeof value === 'string') {
         fieldMap[key.replace(/\./g, '__')] = value;
       }
