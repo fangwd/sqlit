@@ -145,6 +145,7 @@ function _persist(connection: Connection, record: Record): Promise<Record> {
           }
           record.__remove_dirty(Object.keys(fields));
           record.__state.method = FlushMethod.UPDATE;
+          record.__inserted = true;
           resolve(record);
         })
         .catch(error => {
@@ -342,6 +343,7 @@ function _flushTable(
           }
           record.__state.selected = true;
           record.__state.method = FlushMethod.UPDATE;
+          record.__inserted = true;
         }
       }
     });
@@ -685,9 +687,11 @@ async function replaceRecordsIn(
 
   const table = db.table(names[0]);
 
-  if (table.recordList.length === 0) {
-    return;
-  }
+  const values = table.recordList
+    .filter(record => !record.__is_inserted())
+    .map(record => record.__primaryKey());
+
+  if (values.length === 0) return;
 
   const nameSet: Set<string> = new Set();
   for (let i = 1; i < names.length; i++) {
@@ -695,7 +699,6 @@ async function replaceRecordsIn(
   }
 
   const referencingTables = _getReferencingTables(table);
-  const values = table.recordList.map(record => record.__primaryKey());
   for (const referencingTable of referencingTables) {
     if (nameSet.has(referencingTable.table.model.table.shortName)) {
       await _deleteRecords(
@@ -725,6 +728,12 @@ async function _deleteRecords(
 
   await table._delete(connection, filter);
 
+  values = table.recordList
+    .filter(record => !record.__is_inserted())
+    .map(record => record.__primaryKey());
+
+  if (values.length === 0) return;
+
   const referencingTables = _getReferencingTables(table);
 
   for (const referencingTable of referencingTables) {
@@ -733,7 +742,7 @@ async function _deleteRecords(
         connection,
         referencingTable.table,
         referencingTable.field,
-        ids,
+        values,
         nameSet
       );
     }

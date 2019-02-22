@@ -87,12 +87,14 @@ export class Record {
   __data: { [key: string]: FieldValue };
   __state: FlushState;
   __related: { [key: string]: RecordSet };
+  __inserted: boolean;
 
   constructor(table: Table) {
     this.__table = table;
     this.__data = {};
     this.__state = new FlushState();
     this.__related = {};
+    this.__inserted = false;
 
     return new Proxy(this, RecordProxy);
   }
@@ -184,6 +186,13 @@ export class Record {
         this.__state.dirty.delete(key);
       }
     }
+  }
+
+  __is_inserted() {
+    if (this.__state.merged) {
+      return this.__state.merged.__is_inserted();
+    }
+    return this.__inserted;
   }
 
   __getValue(name: string): Value {
