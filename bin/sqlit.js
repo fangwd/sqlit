@@ -10,7 +10,8 @@ const {
   XstreamSerialiser,
   selectTree,
   getReferencingFields,
-  setModelName
+  setModelName,
+  ForeignKeyField
 } = require('../dist');
 
 const getopt = require('../lib/getopt');
@@ -31,7 +32,8 @@ const options = getopt([
   ['  ', '--types'],
   ['  ', '--references'],
   ['  ', '--rename'],
-  ['  ', '--config']
+  ['  ', '--config'],
+  ['  ', '--fixForeignKeys']
 ]);
 
 (async function() {
@@ -95,6 +97,37 @@ const options = getopt([
       options.argv[options.argv.length - 1]
     );
     fs.writeFileSync(options.config, JSON.stringify(config, null, 4));
+  } else if (options.fixForeignKeys) {
+    const rule = options.fixForeignKeys.toLowerCase();
+    const conn = await db.pool.getConnection();
+    const rows = await conn.query(`
+      select table_name, constraint_name, referenced_table_name, delete_rule
+      from information_schema.referential_constraints
+      where constraint_schema='${db.name}'
+    `);
+    for (const row of rows) {
+      if (row.delete_rule.toLowerCase() !== rule) {
+        const constraint = db
+          .table(row.table_name)
+          .model.table.constraints.find(
+            constraint => constraint.name === row.constraint_name
+          );
+        await conn.query(`
+          alter table \`${row.table_name}\`
+          drop foreign key \`${row.constraint_name}\``);
+        const fields = constraint.columns.map(name => `\`${name}\``).join(',');
+        const pk = constraint.references.columns
+          .map(name => `\`${name}\``)
+          .join(',');
+        await conn.query(`
+          alter table \`${row.table_name}\`
+          add constraint \`${row.constraint_name}\` foreign key(${fields})
+          references \`${row.referenced_table_name}\`(${pk}) on delete ${rule}
+        `);
+      } else {
+        println(`OK ${row.table_name} ${row.constraint_name}`);
+      }
+    }
   } else {
     print(schema.database, null, 4);
   }
