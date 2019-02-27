@@ -546,6 +546,14 @@ function plainify(value) {
   }
 }
 
+function pkOnly(doc: Document, model: Model) {
+  if (doc && !isValue(doc)) {
+    const keys = Object.keys(doc);
+    return keys.length === 1 && keys[0] === model.keyField().name;
+  }
+  return false;
+}
+
 // Extends the filter to include foreign key fields
 function extendFilter(model: Model, filter: Filter, fields: Document) {
   for (const name in fields) {
@@ -556,7 +564,10 @@ function extendFilter(model: Model, filter: Filter, fields: Document) {
         if (!filter[name]) {
           filter[name] = {};
         }
-        if (fields[name] === '*') {
+        if (
+          fields[name] === '*' ||
+          !pkOnly(value as Document, field.referencedField.model)
+        ) {
           filter[name]['*'] = true;
         }
         extendFilter(
