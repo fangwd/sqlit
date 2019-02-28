@@ -192,7 +192,7 @@ export class QueryBuilder {
               ]
          }
          */
-        exprs.push(value.map(c => this.and(c)).join(' or '));
+        exprs.push('(' + value.map(c => this.and(c)).join(' or ') + ')');
       } else if (key === NOT) {
         /*
          { not: [
