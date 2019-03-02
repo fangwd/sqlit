@@ -263,7 +263,7 @@ export class Table {
     );
   }
 
-  _resolveRelatedFields(
+  async _resolveRelatedFields(
     connection: Connection,
     result: Document[],
     fields: string | Document
@@ -274,7 +274,6 @@ export class Table {
 
     const pk = this.model.keyField().name;
     const values = result.map(row => this.model.valueOf(row, pk));
-    const promises = [];
 
     for (const name in fields) {
       const field = this.model.field(name);
@@ -293,57 +292,46 @@ export class Table {
             fields = '*';
           }
         }
-        const promise = this._selectRelated(
-          field,
-          values,
-          fields,
-          options
-        ).then(rows => {
-          result.forEach((entry, index) => {
-            entry[name] = rows[index];
-          });
+        const rows = await this._selectRelated(field, values, fields, options);
+        result.forEach((entry, index) => {
+          entry[name] = rows[index];
         });
-
-        promises.push(promise);
       }
     }
 
-    return Promise.all(promises).then(() => {
-      const promises = [];
-      for (const name in fields) {
-        const field = this.model.field(name);
-        const value = fields[name] as Document;
-        if (value) {
-          if (field instanceof ForeignKeyField) {
-            const rows: Document[] = result
-              .map(row => row[field.name] as Document)
-              .filter(row => row);
-            const table = this.db.table(field.referencedField.model);
-            const promise = table._resolveRelatedFields(
-              connection,
-              rows,
-              value
-            );
-            promises.push(promise);
-          } else if (field instanceof RelatedField) {
-            const rows = result
-              .map(r => r[name] as Document[])
-              .reduce((result, rows) => {
-                result = result.concat(rows);
-                return result;
-              }, []);
-            const table = this.db.table(field.referencingField.model);
-            const promise = table._resolveRelatedFields(
-              connection,
-              rows,
-              value
-            );
-            promises.push(promise);
+    for (const name in fields) {
+      const field = this.model.field(name);
+      const value = fields[name] as Document;
+      if (value) {
+        if (field instanceof ForeignKeyField) {
+          const table = this.db.table(field.referencedField.model);
+          const values: Value[] = result.map(row =>
+            table.model.keyValue(row[field.name] as Document)
+          );
+          const docs = await table.select(value, {
+            where: { [table.model.keyField().name]: values }
+          });
+          for (const row of result) {
+            const value = table.model.keyValue(row[field.name] as Document);
+            const doc = docs.find(doc => table.model.keyValue(doc) === value);
+            if (doc) {
+              row[field.name] = JSON.parse(JSON.stringify(doc));
+            }
           }
+        } else if (field instanceof RelatedField) {
+          const rows = result
+            .map(r => r[name] as Document[])
+            .reduce((result, rows) => {
+              result = result.concat(rows);
+              return result;
+            }, []);
+          const table = this.db.table(field.referencingField.model);
+          await table._resolveRelatedFields(connection, rows, value);
         }
       }
-      return Promise.all(promises).then(() => result);
-    });
+    }
+
+    return result;
   }
 
   get(key: Value | Filter): Promise<Document> {
