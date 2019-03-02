@@ -271,6 +271,7 @@ export class Table {
     if (typeof fields === 'string' || fields instanceof SimpleField) {
       return Promise.resolve(result);
     }
+
     const pk = this.model.keyField().name;
     const values = result.map(row => this.model.valueOf(row, pk));
     const promises = [];
@@ -312,13 +313,33 @@ export class Table {
       for (const name in fields) {
         const field = this.model.field(name);
         const value = fields[name] as Document;
-        if (field instanceof ForeignKeyField && value) {
-          const rows: Document[] = result
-            .map(row => row[field.name] as Document)
-            .filter(row => row);
-          const table = this.db.table(field.referencedField.model);
-          const promise = table._resolveRelatedFields(connection, rows, value);
-          promises.push(promise);
+        if (value) {
+          if (field instanceof ForeignKeyField) {
+            const rows: Document[] = result
+              .map(row => row[field.name] as Document)
+              .filter(row => row);
+            const table = this.db.table(field.referencedField.model);
+            const promise = table._resolveRelatedFields(
+              connection,
+              rows,
+              value
+            );
+            promises.push(promise);
+          } else if (field instanceof RelatedField) {
+            const rows = result
+              .map(r => r[name] as Document[])
+              .reduce((result, rows) => {
+                result = result.concat(rows);
+                return result;
+              }, []);
+            const table = this.db.table(field.referencingField.model);
+            const promise = table._resolveRelatedFields(
+              connection,
+              rows,
+              value
+            );
+            promises.push(promise);
+          }
         }
       }
       return Promise.all(promises).then(() => result);
