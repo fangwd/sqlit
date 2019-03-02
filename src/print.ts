@@ -271,6 +271,8 @@ function writeModelJava(model: Model, options: ExportOptions) {
     members.push([typeName, field.name]);
   }
 
+  imports.add('java.util.Objects');
+
   const lines = [];
 
   for (const name of imports) {
@@ -299,6 +301,26 @@ function writeModelJava(model: Model, options: ExportOptions) {
     lines.push(`this.${name}=${name}`);
     lines.push('}');
   }
+
+  const pk = model.keyField().name;
+
+  lines.push(`
+  @Override
+  public boolean equals(Object o) {
+    if (o == this) return true;
+    if (!(o instanceof ${model.name})) {
+      return false;
+    }
+    return ((${model.name})o).${pk} == ${pk};
+  }
+  `);
+
+  lines.push(`
+  @Override
+  public int hashCode() {
+    return Objects.hash(this.getId());
+  }
+  `);
 
   lines.push('}');
 
