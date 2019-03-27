@@ -251,8 +251,17 @@ export class Table {
   select(
     fields: string | Document,
     options: SelectOptions = {},
-    filterThunk?: (builder: QueryBuilder) => string
+    filterThunk?: (builder: QueryBuilder) => string,
+    connection?: Connection
   ): Promise<Document[]> {
+    if (connection) {
+      return this._select(connection, fields, options, filterThunk).then(
+        result =>
+          this._resolveRelatedFields(connection, result, fields).then(
+            result => result as Row[]
+          )
+      );
+    }
     return this.db.pool.getConnection().then(connection =>
       this._select(connection, fields, options, filterThunk).then(result =>
         this._resolveRelatedFields(connection, result, fields).then(result => {
@@ -292,7 +301,13 @@ export class Table {
             fields = '*';
           }
         }
-        const rows = await this._selectRelated(field, values, fields, options);
+        const rows = await this._selectRelated(
+          connection,
+          field,
+          values,
+          fields,
+          options
+        );
         result.forEach((entry, index) => {
           entry[name] = rows[index];
         });
@@ -308,9 +323,14 @@ export class Table {
           const values: Value[] = result.map(row =>
             table.model.keyValue(row[field.name] as Document)
           );
-          const docs = await table.select(value, {
-            where: { [table.model.keyField().name]: values }
-          });
+          const docs = await table.select(
+            value,
+            {
+              where: { [table.model.keyField().name]: values }
+            },
+            undefined,
+            connection
+          );
           for (const row of result) {
             const value = table.model.keyValue(row[field.name] as Document);
             const doc = docs.find(doc => table.model.keyValue(doc) === value);
@@ -1169,6 +1189,7 @@ export class Table {
   }
 
   _selectRelated(
+    connection: Connection,
     field: RelatedField,
     values: Value[],
     fields,
@@ -1194,7 +1215,12 @@ export class Table {
           }
           promises.push(
             table
-              .select({ [field.throughField.name]: fields }, options)
+              .select(
+                { [field.throughField.name]: fields },
+                options,
+                undefined,
+                connection
+              )
               .then(rows => rows.map(row => row[field.throughField.name]))
           );
         }
@@ -1203,7 +1229,7 @@ export class Table {
           const options = Object.assign({}, selectOptions);
           options.where = Object.assign({}, options.where, { [name]: value });
           promises.push(
-            table.select(fields, options).then(rows => {
+            table.select(fields, options, undefined, connection).then(rows => {
               if (field.referencingField.isUnique()) {
                 const row = rows[0];
                 if (row) {
@@ -1235,7 +1261,12 @@ export class Table {
         );
       }
       return table
-        .select({ [field.throughField.name]: fields }, options)
+        .select(
+          { [field.throughField.name]: fields },
+          options,
+          undefined,
+          connection
+        )
         .then(rows => {
           const id = field.referencingField.model.keyField().name;
           if (field.referencingField.isUnique()) {
@@ -1251,7 +1282,7 @@ export class Table {
         });
     } else {
       options.where[name] = values;
-      return table.select(fields, options).then(rows => {
+      return table.select(fields, options, undefined, connection).then(rows => {
         const id = field.referencingField.model.keyField().name;
         if (field.referencingField.isUnique()) {
           return values.map(key => {
