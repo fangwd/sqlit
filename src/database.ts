@@ -501,9 +501,17 @@ export class Table {
       sql += ` offset ${parseInt(options.offset + '')}`;
     }
     return connection.query(sql).then(rows => {
-      return filterThunk
-        ? rows
-        : rows.map(row => toDocument(row, this.model, builder.fieldMap));
+      return rows.map(row => {
+        const doc = toDocument(row, this.model, builder.fieldMap);
+        if (filterThunk) {
+          for (const key in row) {
+            if (key.indexOf('__') !== -1) {
+              doc[key] = row[key];
+            }
+          }
+        }
+        return doc;
+      });
     });
   }
 
