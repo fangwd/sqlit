@@ -294,6 +294,7 @@ export class Table {
           options = {};
         } else {
           options = Object.assign({}, value);
+          // TODO: Document options.fields for related fields!
           if (options.fields) {
             fields = options.fields;
             delete options.fields;
@@ -320,33 +321,35 @@ export class Table {
       if (value) {
         if (field instanceof ForeignKeyField) {
           const table = this.db.table(field.referencedField.model);
-          const values: Value[] = result.map(row =>
-            table.model.keyValue(row[field.name] as Document)
-          );
-          const docs = await table.select(
-            value,
-            {
-              where: { [table.model.keyField().name]: values }
-            },
-            undefined,
-            connection
-          );
-          for (const row of result) {
-            const value = table.model.keyValue(row[field.name] as Document);
-            const doc = docs.find(doc => table.model.keyValue(doc) === value);
-            if (doc) {
-              row[field.name] = JSON.parse(JSON.stringify(doc));
+          if (shouldSelectSeparately(table.model, value)) {
+            const values: Value[] = result.map(row =>
+              table.model.keyValue(row[field.name] as Document)
+            );
+            const docs = await table.select(
+              value,
+              {
+                where: { [table.model.keyField().name]: values }
+              },
+              undefined,
+              connection
+            );
+            for (const row of result) {
+              const value = table.model.keyValue(row[field.name] as Document);
+              const doc = docs.find(doc => table.model.keyValue(doc) === value);
+              if (doc) {
+                row[field.name] = JSON.parse(JSON.stringify(doc));
+              }
             }
+          } else if (field instanceof RelatedField) {
+            const rows = result
+              .map(r => r[name] as Document[])
+              .reduce((result, rows) => {
+                result = result.concat(rows);
+                return result;
+              }, []);
+            const table = this.db.table(field.referencingField.model);
+            await table._resolveRelatedFields(connection, rows, value);
           }
-        } else if (field instanceof RelatedField) {
-          const rows = result
-            .map(r => r[name] as Document[])
-            .reduce((result, rows) => {
-              result = result.concat(rows);
-              return result;
-            }, []);
-          const table = this.db.table(field.referencingField.model);
-          await table._resolveRelatedFields(connection, rows, value);
         }
       }
     }
@@ -1538,4 +1541,21 @@ function pkOf(model: Model, data: unknown): Value {
     return pkOf(pk.referencedField.model, (<Document>data)[pk.name]);
   }
   return <Value>(<Document>data)[pk.name];
+}
+
+export function shouldSelectSeparately(
+  model: Model,
+  fields: string | Document
+) {
+  if (typeof fields === 'string') {
+    return false;
+  }
+
+  for (const name in fields) {
+    if (model.field(name) instanceof RelatedField) {
+      return true;
+    }
+  }
+
+  return false;
 }

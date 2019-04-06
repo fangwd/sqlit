@@ -1,4 +1,11 @@
-import { Filter, OrderBy, isValue, toRow, Document } from './database';
+import {
+  Filter,
+  OrderBy,
+  isValue,
+  toRow,
+  Document,
+  shouldSelectSeparately
+} from './database';
 import { Record } from './record';
 
 import {
@@ -614,8 +621,10 @@ function getFields(
       const field = model.field(name);
       if (field instanceof ForeignKeyField) {
         const model = field.referencedField.model;
-        const fields = getFields(model, value as Document, fieldMap, key);
-        result = result.concat(fields);
+        if (!shouldSelectSeparately(model, value as Document)) {
+          const fields = getFields(model, value as Document, fieldMap, key);
+          result = result.concat(fields);
+        }
       } else if (typeof value === 'string') {
         fieldMap[key.replace(/\./g, '__')] = value;
       }
