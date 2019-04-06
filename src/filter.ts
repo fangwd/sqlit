@@ -378,7 +378,7 @@ export class QueryBuilder {
         } else {
           sql += ' and ';
         }
-        sql += extra;
+        sql += `(${extra})`;
       }
     }
     if (query.orderBy) {
