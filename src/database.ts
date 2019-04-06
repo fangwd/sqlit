@@ -497,7 +497,6 @@ export class Table {
     if (options.limit !== undefined) {
       sql += ` limit ${parseInt(options.limit + '')}`;
     }
-
     if (options.offset !== undefined) {
       sql += ` offset ${parseInt(options.offset + '')}`;
     }
@@ -1449,10 +1448,8 @@ function setNullForeignKeys(result: Document, model: Model): Document {
 
 export function toDocument(row: Row, model: Model, fieldMap = {}): Document {
   const result = {};
-
   for (const key in row) {
     const fieldNames = key.split('__');
-
     let currentResult = result;
     let currentModel = model;
 
@@ -1472,7 +1469,6 @@ export function toDocument(row: Row, model: Model, fieldMap = {}): Document {
     const field = currentModel.field(fieldNames[fieldNames.length - 1]);
 
     const fieldName = fieldMap[key] || field.name;
-
     if (field instanceof SimpleField) {
       const value = _toCamel(row[key], field);
       if (field instanceof ForeignKeyField) {
@@ -1480,8 +1476,14 @@ export function toDocument(row: Row, model: Model, fieldMap = {}): Document {
           if (!(field.name in currentResult)) {
             currentResult[fieldName] = {};
           }
-          const name = field.referencedField.model.keyField().name;
-          currentResult[fieldName][name] = value;
+          let keyField = field.referencedField.model.keyField();
+          let result = currentResult[fieldName];
+          while (keyField instanceof ForeignKeyField) {
+            result[keyField.name] = {};
+            result = result[keyField.name];
+            keyField = keyField.referencedField.model.keyField();
+          }
+          result[keyField.name] = value;
         } else {
           currentResult[fieldName] = null;
         }
