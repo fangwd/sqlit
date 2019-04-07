@@ -222,3 +222,17 @@ const DefaultEscape = {
   escapeId: s => '`' + s + '`',
   escape: s => "'" + (s + '').replace(/'/g, "\\'") + "'"
 };
+
+test('empty result', async () => {
+  const db = helper.connectToDatabase(NAME);
+  const connection = await db.pool.getConnection();
+  const rows = await db.table('user_group').select(
+    '*',
+    {
+      where: { group: [] }
+    },
+    undefined,
+    connection
+  );
+  expect(rows.length).toBe(0);
+});

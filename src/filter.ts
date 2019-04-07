@@ -136,7 +136,8 @@ export class QueryBuilder {
               filter.push(arg);
             }
           }
-          let expr = values.length > 0 ? this.expr(field, 'in', values) : '';
+          let expr =
+            values.length > 0 ? this.expr(field, 'in', values) : 'false';
           if (filter.length > 0) {
             if (expr.length > 0) expr += ' or ';
             expr += this._join(field, filter);
