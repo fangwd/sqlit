@@ -1207,8 +1207,10 @@ export class Table {
           };
           if (options.orderBy) {
             const prefix = field.throughField.name;
-            options.orderBy = toArray(options.orderBy).map(
-              name => `${prefix}.${name}`
+            options.orderBy = toArray(options.orderBy).map((name: string) =>
+              name[0] === '-'
+                ? `-${prefix}.${name.substring(1)}`
+                : `${prefix}.${name}`
             );
           }
           promises.push(
@@ -1254,8 +1256,10 @@ export class Table {
       options.where[field.referencingField.name] = values;
       if (options.orderBy) {
         const prefix = field.throughField.name;
-        options.orderBy = toArray(options.orderBy).map(
-          name => `${prefix}.${name}`
+        options.orderBy = toArray(options.orderBy).map((name: string) =>
+          name[0] === '-'
+            ? `-${prefix}.${name.substring(1)}`
+            : `${prefix}.${name}`
         );
       }
       return table

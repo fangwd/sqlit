@@ -259,7 +259,7 @@ export class QueryBuilder {
 
   _extendFilter(filter: Filter, orderBy: OrderBy): Filter {
     for (const entry of toArray(orderBy)) {
-      const fields = entry.split('.');
+      const fields = entry.replace(/^-/, '').split('.');
       let result = filter;
       let model = this.model;
       for (let i = 0; i < fields.length - 1; i++) {
@@ -331,7 +331,7 @@ export class QueryBuilder {
     }
 
     if (orderBy) {
-      // orderBy: ['user.email desc']
+      // orderBy: ['-user.email']
       filter = this._extendFilter(filter, orderBy);
     }
 
@@ -352,10 +352,11 @@ export class QueryBuilder {
     }
 
     if (orderBy) {
-      orderBy = toArray(orderBy).map(order => {
-        const [path, direction] = order.split(' ');
+      orderBy = toArray(orderBy).map((order: string) => {
+        const [path, direction] =
+          order[0] === '-' ? [order.substr(1), 'DESC'] : [order, 'ASC'];
         const column = this._pushField(fields, path);
-        return `${column} ${/^desc$/i.test(direction || '') ? 'DESC' : 'ASC'}`;
+        return `${column} ${direction}`;
       });
     }
 

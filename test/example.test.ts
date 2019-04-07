@@ -72,7 +72,7 @@ test('query', async done => {
           name: 'title'
         },
         where: { name_like: '%' },
-        orderBy: ['name asc']
+        orderBy: ['name']
       }
     };
 
@@ -90,7 +90,7 @@ test('query', async done => {
           name: 'title'
         },
         where: { name_like: '%' },
-        orderBy: ['name desc'],
+        orderBy: ['-name'],
         limit: 1
       }
     };

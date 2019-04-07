@@ -200,7 +200,7 @@ test('order by', () => {
   const model = domain.model('OrderItem');
   const args = {
     where: { quantity_gt: 1 },
-    orderBy: ['order.code desc', 'order.user.email', 'quantity']
+    orderBy: ['-order.code', 'order.user.email', 'quantity']
   };
   const builder = new QueryBuilder(model, DefaultEscape);
   const sql = builder.select('*', args.where, args.orderBy);

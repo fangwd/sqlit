@@ -88,7 +88,7 @@ test('load attributes', async done => {
 
   const rows = await db.table('category_attribute').select('*', {
     where: { category: { name: 'Example B1' } },
-    orderBy: ['name desc']
+    orderBy: ['-name']
   });
 
   expect(rows.length).toBe(2);
@@ -131,7 +131,7 @@ test('load with defaults', async done => {
 
     const rows = await db.table('category_attribute').select('*', {
       where: { category: { name: 'Example C1' } },
-      orderBy: ['name desc']
+      orderBy: ['-name']
     });
 
     expect(rows.length).toBe(2);
