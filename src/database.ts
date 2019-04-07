@@ -248,28 +248,37 @@ export class Table {
     );
   }
 
-  select(
+  async select(
     fields: string | Document,
     options: SelectOptions = {},
     filterThunk?: (builder: QueryBuilder) => string,
     connection?: Connection
   ): Promise<Document[]> {
     if (connection) {
-      return this._select(connection, fields, options, filterThunk).then(
-        result =>
-          this._resolveRelatedFields(connection, result, fields).then(
-            result => result as Row[]
-          )
+      const result = await this._select(
+        connection,
+        fields,
+        options,
+        filterThunk
       );
+      await this._resolveRelatedFields(connection, result, fields);
+      return result;
     }
-    return this.db.pool.getConnection().then(connection =>
-      this._select(connection, fields, options, filterThunk).then(result =>
-        this._resolveRelatedFields(connection, result, fields).then(result => {
-          connection.release();
-          return result as Row[];
-        })
-      )
-    );
+    connection = await this.db.pool.getConnection();
+    try {
+      const result = await this._select(
+        connection,
+        fields,
+        options,
+        filterThunk
+      );
+      await this._resolveRelatedFields(connection, result, fields);
+      connection.release();
+      return result;
+    } catch (error) {
+      connection.release();
+      throw error;
+    }
   }
 
   async _resolveRelatedFields(
@@ -357,82 +366,61 @@ export class Table {
     return result;
   }
 
-  get(key: Value | Filter): Promise<Document> {
-    return this.db.pool.getConnection().then(connection =>
-      this._get(connection, key).then(result => {
-        connection.release();
-        return result;
-      })
-    );
+  async get(key: Value | Filter): Promise<Document> {
+    return this._call('_get', key);
   }
 
-  insert(data: Row): Promise<any> {
-    return this.db.pool.getConnection().then(connection =>
-      this._insert(connection, data).then(result => {
-        connection.release();
-        return result;
-      })
-    );
+  async insert(data: Row): Promise<any> {
+    return this._call('_insert', data);
   }
 
-  create(data: Document): Promise<Document> {
-    return this.db.pool.getConnection().then(connection =>
-      connection.transaction(() =>
-        this._create(connection, data).then(result => {
-          connection.release();
-          return result;
-        })
-      )
-    );
+  async create(data: Document): Promise<Document> {
+    return this._call('_create', data);
   }
 
-  update(data: Document, filter: Filter): Promise<any> {
-    return this.db.pool.getConnection().then(connection =>
-      this._update(connection, data, filter).then(result => {
-        connection.release();
-        return result;
-      })
-    );
+  async update(data: Document, filter: Filter): Promise<any> {
+    return this._call('_update', data, filter);
   }
 
   upsert(data: Document, update?: Document): Promise<Document> {
-    return this.db.pool.getConnection().then(connection =>
-      connection.transaction(() =>
-        this._upsert(connection, data, update).then(result => {
-          connection.release();
-          return result;
-        })
-      )
-    );
+    return this._call('_upsert', data, update);
   }
 
   modify(data: Document, filter: Filter): Promise<Document> {
-    return this.db.pool.getConnection().then(connection =>
+    return this._call('_modify', data, filter);
+  }
+
+  private async _call(
+    method: string,
+    data?: Document | Value | Filter,
+    filter?: Filter | Document
+  ): Promise<any> {
+    const connection = await this.db.pool.getConnection();
+    try {
+      const result = await this[method](connection, data, filter);
+      connection.release();
+      return result;
+    } catch (error) {
+      connection.release();
+      throw error;
+    }
+  }
+
+  async delete(filter: Filter): Promise<any> {
+    if (this.closureTable) return this._call('_delete', filter);
+
+    const connection = await this.db.pool.getConnection();
+    try {
       connection.transaction(() =>
-        this._modify(connection, data, filter).then(result => {
+        this._delete(connection, filter).then(result => {
           connection.release();
           return result;
         })
-      )
-    );
-  }
-
-  delete(filter: Filter): Promise<any> {
-    return this.db.pool.getConnection().then(connection => {
-      if (this.closureTable) {
-        return connection.transaction(() =>
-          this._delete(connection, filter).then(result => {
-            connection.release();
-            return result;
-          })
-        );
-      } else {
-        return this._delete(connection, filter).then(result => {
-          connection.release();
-          return result;
-        });
-      }
-    });
+      );
+    } catch (error) {
+      connection.release();
+      throw error;
+    }
   }
 
   replace(data: Document): Promise<Record> {
