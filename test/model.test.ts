@@ -1,9 +1,4 @@
-import {
-  Schema,
-  SimpleField,
-  ForeignKeyField,
-  RelatedField
-} from '../src/model';
+import { Schema, SimpleField, ForeignKeyField, RelatedField } from 'sqlex';
 
 import * as helper from './helper';
 
@@ -13,7 +8,7 @@ test('domain properties', () => {
   const domain = new Schema(data);
   expect(domain.database).toBe(data);
   expect(domain.models.length).toBe(data.tables.length);
-  expect(domain.model('User').domain).toBe(domain);
+  expect(domain.model('User').schema).toBe(domain);
 });
 
 test('default model names', () => {
@@ -29,7 +24,8 @@ test('custmise model names', () => {
       {
         table: 'delivery_address',
         name: 'Address',
-        pluralName: 'Addresses'
+        pluralName: 'Addresses',
+        fields: []
       }
     ]
   };
@@ -184,11 +180,11 @@ test('getForeignKeyCount', () => {
 test('pascal name of related field', () => {
   const domain = new Schema(data);
   const order = domain.model('User').field('orders') as RelatedField;
-  expect(order.getPascalName()).toBe('UserOrder');
+  expect(order.getTypeName()).toBe('UserOrder');
   const category = domain
     .model('Category')
-    .field('categoryTreesAncestor') as RelatedField;
-  expect(category.getPascalName()).toBe('CategoryCategoryTreeAncestor');
+    .field('ancestorCategoryTrees') as RelatedField;
+  expect(category.getTypeName()).toBe('AncestorCategoryTree');
 });
 
 test('Model.getValue()', () => {

@@ -1,8 +1,13 @@
 import { Result as SelectResult } from './select';
-import { Model, ForeignKeyField, RelatedField } from './model';
-import { Document, isValue } from './database';
-import { Value } from './engine';
-import { lcfirst } from './model';
+import {
+  Model,
+  ForeignKeyField,
+  RelatedField,
+  Document,
+  Value,
+  isValue,
+  lcfirst
+} from 'sqlex';
 import { shouldSkip } from './print';
 
 class DocumentMap {

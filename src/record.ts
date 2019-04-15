@@ -1,7 +1,15 @@
-import { Table, Document, _toCamel, isEmpty, isValue } from './database';
-import { SimpleField, ForeignKeyField, UniqueKey, RelatedField } from './model';
+import { Table, _toCamel, isEmpty, getUniqueFields } from './database';
+import {
+  SimpleField,
+  ForeignKeyField,
+  UniqueKey,
+  RelatedField,
+  Document,
+  Value,
+  isValue
+} from 'sqlex';
 import { FlushState, FlushMethod, flushRecord } from './flush';
-import { Row, Value } from './engine';
+import { Row } from './engine';
 import { copyRecord } from './copy';
 
 export type FieldValue = Value | Record;
@@ -126,7 +134,7 @@ export class Record {
   }
 
   delete(): Promise<any> {
-    const filter = this.__table.model.getUniqueFields(this.__data);
+    const filter = getUniqueFields(this.__table.model, this.__data);
     return this.__table.delete(filter);
   }
 
@@ -231,7 +239,7 @@ export class Record {
       acc[cur] = self.__getValue(cur);
       return acc;
     }, {});
-    return this.__table.model.getUniqueFields(data);
+    return getUniqueFields(this.__table.model, data);
   }
 
   __valueOf(uc: UniqueKey): string {

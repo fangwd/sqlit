@@ -1,6 +1,6 @@
 {
   "name": "sqlit",
-  "version": "1.9.1",
+  "version": "1.9.2",
   "description": "Sqlit - A library that makes database access easy and fun",
   "main": "./dist/index.js",
   "files": [
@@ -15,7 +15,7 @@
   "author": "Weidong Fang",
   "license": "MIT",
   "dependencies": {
-    "reflect-metadata": "^0.1.13"
+    "sqlex": "^0.3.0"
   },
   "repository": {
     "type": "git",

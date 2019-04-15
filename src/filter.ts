@@ -1,10 +1,9 @@
 import {
   Filter,
   OrderBy,
-  isValue,
   toRow,
-  Document,
-  shouldSelectSeparately
+  shouldSelectSeparately,
+  getUniqueFields
 } from './database';
 import { Record } from './record';
 
@@ -13,10 +12,13 @@ import {
   Field,
   SimpleField,
   ForeignKeyField,
-  RelatedField
-} from './model';
+  RelatedField,
+  Document,
+  Value,
+  isValue
+} from 'sqlex';
 
-import { Dialect, Value } from './engine';
+import { Dialect } from './engine';
 import { toArray } from './misc';
 
 export interface AliasEntry {
@@ -544,7 +546,7 @@ function plainify(value) {
     if (value.__primaryKey()) {
       return { [model.keyField().name]: value.__primaryKey() };
     } else {
-      return model.getUniqueFields(value.__data);
+      return getUniqueFields(model, value.__data);
     }
   } else {
     const result = {};

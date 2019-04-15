@@ -1,6 +1,5 @@
-import { Table, Filter, Document } from './database';
-import { ForeignKeyField, RelatedField, Field, SimpleField } from './model';
-import { Value } from './engine';
+import { Table, Filter } from './database';
+import { ForeignKeyField, Field, SimpleField, Document, Value } from 'sqlex';
 
 export type Result = { [key: string]: Map<Value, Document> };
 
@@ -135,7 +134,7 @@ function merge(result: Result, table: Table, rows?: Document[]) {
 
 function mayQuery(querySet: Set<string>, fields: Field[], values: Value[]) {
   const key = fields
-    .map(field => field.displayName() + JSON.stringify(values))
+    .map(field => field.fullname + JSON.stringify(values))
     .join('/');
   if (!querySet.has(key)) {
     querySet.add(key);

@@ -1,5 +1,5 @@
-import { Database, Table, Filter, Document } from './database';
-import { Model, ForeignKeyField, SimpleField } from './model';
+import { Database, Table, Filter } from './database';
+import { Model, ForeignKeyField, SimpleField, Document } from 'sqlex';
 import { Record } from './record';
 
 export interface CopyOptions {

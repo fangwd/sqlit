@@ -1,4 +1,4 @@
-import { Schema } from '../src/model';
+import { Schema } from 'sqlex';
 import { encodeFilter, QueryBuilder, splitKey } from '../src/filter';
 
 import helper = require('./helper');

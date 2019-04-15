@@ -1,5 +1,5 @@
-import { Schema } from '../src/model';
-import { Database, Table } from '../src/database';
+import { Schema } from 'sqlex';
+import { Database } from '../src/database';
 import { Record } from '../src/record';
 
 import helper = require('./helper');

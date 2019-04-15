@@ -1,5 +1,4 @@
-import { Schema, ForeignKeyField } from '../src/model';
-import { Value } from '../src/engine';
+import { Schema, Value } from 'sqlex';
 import helper = require('./helper');
 
 const NAME = 'database';

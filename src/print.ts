@@ -1,12 +1,12 @@
 import {
   Schema,
-  SchemaInfo,
   Model,
   Field,
   SimpleField,
   ForeignKeyField,
   RelatedField
-} from './model';
+} from 'sqlex';
+import { Database as SchemaInfo } from 'sqlex/dist/types';
 import { writeFileSync } from 'fs';
 import { join } from 'path';
 

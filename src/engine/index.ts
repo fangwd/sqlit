@@ -1,11 +1,10 @@
 import { getInformationSchema } from './information_schema';
+import { Value } from 'sqlex';
 
 export interface ConnectionInfo {
   dialect: string;
   connection: any;
 }
-
-export type Value = string | number | boolean | Date | null;
 
 export type Row = {
   [key: string]: Value;

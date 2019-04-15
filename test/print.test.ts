@@ -1,4 +1,4 @@
-import { Schema } from '../src/model';
+import { Schema } from 'sqlex';
 import { printSchema } from '../src/print';
 import * as helper from './helper';
 

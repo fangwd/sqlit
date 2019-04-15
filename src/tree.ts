@@ -1,8 +1,8 @@
-import { ForeignKeyField } from './model';
+import { ForeignKeyField, Document, Value, isValue } from 'sqlex';
 import { encodeFilter } from './filter';
-import { Connection, Value } from './engine';
+import { Connection } from './engine';
 
-import { Document, Table, Filter, isValue, toDocument } from './database';
+import { Table, Filter, toDocument } from './database';
 
 export function createNode(
   connection: Connection,

@@ -1,10 +1,22 @@
-import { Database, Table, Document, Filter, toDocument } from './database';
+import {
+  Database,
+  Table,
+  Filter,
+  toDocument,
+  getUniqueFields
+} from './database';
 import { Record } from './record';
 
-import { Connection, Value } from './engine';
+import { Connection } from './engine';
 import { encodeFilter } from './filter';
 
-import { SimpleField, ForeignKeyField, RelatedField } from './model';
+import {
+  SimpleField,
+  ForeignKeyField,
+  RelatedField,
+  Document,
+  Value
+} from 'sqlex';
 
 export enum FlushMethod {
   INSERT,
@@ -115,7 +127,7 @@ export function flushRecord(
 function _persist(connection: Connection, record: Record): Promise<Record> {
   const method = record.__state.method;
   const model = record.__table.model;
-  const filter = model.getUniqueFields(record.__data);
+  const filter = getUniqueFields(model, record.__data);
   if (method === FlushMethod.DELETE) {
     return record.__table.delete(filter).then(() => {
       record.__state.deleted = true;
@@ -756,7 +768,7 @@ interface ReferencingTableInfo {
 
 function _getReferencingTables(table: Table): ReferencingTableInfo[] {
   const referencingTables = [];
-  for (const model of table.model.domain.models) {
+  for (const model of table.model.schema.models) {
     if (model === table.model) continue;
     const referencingTable = table.db.table(model);
     for (const field of model.fields) {

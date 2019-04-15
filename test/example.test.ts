@@ -1,5 +1,5 @@
 import { Database } from '../src/database';
-import { SimpleField } from '../src/model';
+import { SimpleField } from 'sqlex';
 
 import helper = require('./helper');
 

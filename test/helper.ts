@@ -7,7 +7,7 @@ import {
   ConnectionPool
 } from '../src/engine';
 
-import { Schema, Model } from '../src/model';
+import { Schema, Model } from 'sqlex';
 import { Database } from '../src/database';
 
 const DB_TYPE = process.env.DB_TYPE || 'mysql';

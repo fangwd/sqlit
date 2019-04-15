@@ -1,4 +1,4 @@
-import { Value, ConnectionInfo, createConnectionPool } from './engine';
+import { ConnectionInfo, createConnectionPool } from './engine';
 import { flushDatabase, replaceRecord, FlushOptions } from './flush';
 import { RecordProxy, Record, getModel } from './record';
 import {
@@ -15,19 +15,18 @@ import {
   SimpleField,
   ForeignKeyField,
   RelatedField,
-  ColumnInfo,
-  SchemaConfig
-} from './model';
+  isValue,
+  Column as ColumnInfo,
+  Document,
+  Value
+} from 'sqlex';
+import { Schema as SchemaConfig } from 'sqlex/dist/config';
 import {
   Connection,
   ConnectionPool,
   Row,
   getInformationSchema
 } from './engine';
-
-export type Document = {
-  [key: string]: Value | Value[] | Document | Document[];
-};
 
 export type Filter = Document | Document[];
 
@@ -625,7 +624,7 @@ export class Table {
       key = {
         [this.model.keyField().name]: key
       };
-    } else if (!this.model.checkUniqueKey(key)) {
+    } else if (!this.model.checkUniqueKey(key as Document)) {
       const msg = `Bad selector: ${JSON.stringify(key)}`;
       return Promise.reject(Error(msg));
     }
@@ -725,7 +724,7 @@ export class Table {
     const self = this;
 
     return this._resolveParentFields(connection, data).then(row => {
-      const uniqueFields = self.model.getUniqueFields(row);
+      const uniqueFields = getUniqueFields(self.model, row);
       return self._get(connection, uniqueFields).then(row => {
         if (!row) {
           return self._create(connection, data);
@@ -745,7 +744,7 @@ export class Table {
     data: Document,
     filter: Filter
   ): Promise<Document> {
-    if (!this.model.checkUniqueKey(filter)) {
+    if (!this.model.checkUniqueKey(filter as Document)) {
       return Promise.reject(`Bad filter: ${JSON.stringify(filter)}`);
     }
 
@@ -800,7 +799,7 @@ export class Table {
   ): Promise<any> {
     const promises = [];
     const field = related.referencingField;
-    if (!field) throw Error(`Bad field ${related.displayName()}`);
+    if (!field) throw Error(`Bad field ${related.fullname}`);
     const table = this.db.table(field.model);
     if (!data || field.model.keyValue(data) === null) {
       if (field.column.nullable) {
@@ -1095,7 +1094,7 @@ export class Table {
       }
 
       function _update(row) {
-        self.update(data, self.model.getUniqueFields(row)).then(result => {
+        self.update(data, getUniqueFields(self.model, row)).then(result => {
           if (result.changedRows === 1) {
             resolve(row);
           } else {
@@ -1515,17 +1514,6 @@ export function isEmpty(value: Value | Record | any) {
   return false;
 }
 
-export function isValue(value): boolean {
-  if (value === null) return true;
-
-  const type = typeof value;
-  if (type === 'string' || type === 'number' || type === 'boolean') {
-    return true;
-  }
-
-  return value instanceof Date;
-}
-
 function pkOf(model: Model, data: unknown): Value {
   if (isValue(data)) return <Value>data;
   const pk = model.keyField();
@@ -1550,4 +1538,20 @@ export function shouldSelectSeparately(
   }
 
   return false;
+}
+
+export function getUniqueFields(model: Model, row: Document) {
+  const uniqueKey = model.checkUniqueKey(row);
+  if (uniqueKey) {
+    const fields = {};
+    for (const field of uniqueKey.fields) {
+      const value = row[field.name];
+      if (value instanceof Record) {
+        fields[field.name] = value.__primaryKey();
+      } else {
+        fields[field.name] = row[field.name];
+      }
+    }
+    return fields;
+  }
 }

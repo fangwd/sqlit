@@ -1,5 +1,10 @@
 import { Connection } from '.';
-import { SchemaInfo, TableInfo, ColumnInfo, ConstraintInfo } from '../model';
+import {
+  Database as SchemaInfo,
+  Table as TableInfo,
+  Column as ColumnInfo,
+  Constraint as ConstraintInfo
+} from 'sqlex';
 
 export function getInformationSchema(
   connection: Connection,

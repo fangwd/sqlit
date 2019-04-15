@@ -1,4 +1,5 @@
-import { Schema, setModelName, SchemaConfig } from '../src/model';
+import { Schema, setModelName } from 'sqlex';
+import { Schema as SchemaConfig } from 'sqlex/dist/config';
 import { getInformationSchema } from '../src/engine';
 import helper = require('./helper');
 

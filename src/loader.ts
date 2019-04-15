@@ -1,6 +1,12 @@
-import { Document, Table, Filter } from './database';
+import { Table } from './database';
 import { Record } from './record';
-import { ForeignKeyField, RelatedField, Field, SimpleField } from './model';
+import {
+  ForeignKeyField,
+  RelatedField,
+  Field,
+  SimpleField,
+  Document
+} from 'sqlex';
 
 export interface RecordConfig {
   [key: string]: string | string[];
@@ -136,7 +142,7 @@ function getRecordField(row: Record, field: Field): Record {
     }
   }
 
-  throw Error(`Invalid field: ${field && field.displayName()}`);
+  throw Error(`Invalid field: ${field && field.fullname}`);
 }
 
 function setDefaults(row: Record, defaults: Document) {

@@ -1,5 +1,3 @@
-import { Query } from 'mysql';
-
 export type TransactionCallback = (
   connection: Connection | any
 ) => Promise<any>;

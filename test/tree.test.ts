@@ -1,5 +1,5 @@
 import helper = require('./helper');
-import { Schema } from '../src/model';
+import { Schema } from 'sqlex';
 
 const NAME = 'tree';
 
