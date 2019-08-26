@@ -156,9 +156,8 @@ test('transaction commit (by user)', done => {
   expect.assertions(3);
 
   const ID = 500;
-
   const conn = helper.createTestConnection(NAME);
-  conn.transaction(conn =>
+  conn.transaction(conn => {
     conn
       .query(`insert into category (id, name) values (${ID}, 'Grocery')`)
       .then(id => {
@@ -185,15 +184,14 @@ test('transaction commit (by user)', done => {
                 )
               );
           });
-      })
-  );
+      });
+  });
 });
 
 test('transaction rollback (by user)', done => {
   expect.assertions(2);
 
   const ID = 600;
-
   const conn = helper.createTestConnection(NAME);
   conn.transaction(conn => {
     conn
@@ -227,10 +225,14 @@ test('pool', done => {
     connection.query('SELECT 1 + 1 AS solution').then(result => {
       expect(result[0].solution).toBe(2);
       connection.release();
-      pool.getConnection().then(connection2 => {
-        expect(connection2.connection).toBe(connection.connection);
+      if (process.env.DB_TYPE === 'sqlite3') {
         done();
-      });
+      } else {
+        pool.getConnection().then(connection2 => {
+          expect(connection2.connection).toBe(connection.connection);
+          done();
+        });
+      }
     });
   });
 });

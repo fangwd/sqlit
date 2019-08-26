@@ -47,8 +47,8 @@ insert into delivery_address (id, street_address, city, state, country, postal_c
   (1, '1 King William Street', 'Adelaide', 'South Australia', 'Australia', '5000'),
   (2, '2 King William Street', 'Adelaide', 'South Australia', 'Australia', '5000');
 insert into `order` (id, code, date_created, user_id, delivery_address_id, status) values
-  (1, 'order-1', '2018-3-20', 3, 1, 1),
-  (2, 'order-2', '2018-3-21', 3, 2, 1);
+  (1, 'order-1', '2018-03-20 00:00:00.000', 3, 1, 1),
+  (2, 'order-2', '2018-03-21 00:00:00.000', 3, 2, 1);
 insert into order_item (order_id, product_id, quantity) values
   (1, 1, 2), -- 2 kg of australian apple
   (1, 3, 1), -- 1 kg of american apple

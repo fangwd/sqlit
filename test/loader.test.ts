@@ -216,7 +216,6 @@ test('load with defaults', async done => {
 
   done();
 });
-
 test('load many to many #1', async done => {
   const db = helper.connectToDatabase(NAME);
   const table = db.table('product');
@@ -256,7 +255,7 @@ test('load many to many #1', async done => {
     where: { name: 'Fancy' }
   }))[0];
 
-  expect(!!category).toBe(true);
+  expect(category).toBeTruthy();
 
   const rows = await db.table('product_category').select('*', {
     where: { product: { id_in: [products[0].id, products[1].id] }, category }

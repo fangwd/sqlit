@@ -7,7 +7,7 @@ import {
   ConnectionPool
 } from '../src/engine';
 
-import { Schema, Model } from 'sqlex';
+import { Schema } from 'sqlex';
 import { Database } from '../src/database';
 
 const DB_TYPE = process.env.DB_TYPE || 'mysql';
@@ -18,6 +18,62 @@ const DB_NAME = process.env.DB_NAME || 'sqlit_test';
 
 const SCHEMA = fs.readFileSync('test/data/schema.sql').toString();
 const DATA = fs.readFileSync('test/data/data.sql').toString();
+
+function createSQLite3Database(name): Promise<void> {
+  const sqlite3 = require('sqlite3');
+  const filename = `${DB_NAME}_${name}`;
+  return new Promise(resolve => {
+    function _create() {
+      const db = new sqlite3.Database(filename);
+      db.serialize(function() {
+        (SCHEMA + DATA).split(';').forEach(line => {
+          const stmt = line.replace(/auto_increment|--.*?(\n|$)/gi, '\n');
+          if (stmt.trim() && !/^\s*alter/i.test(stmt)) {
+            db.run(stmt);
+          }
+        });
+      });
+      db.close(err => {
+        if (err) throw err;
+        _resolve();
+      });
+    }
+
+    function _resolve() {
+      resolve();
+    }
+
+    fs.exists(filename, exists => {
+      if (exists) {
+        fs.unlink(filename, err => {
+          if (err) throw err;
+          _create();
+        });
+      } else {
+        _create();
+      }
+    });
+  });
+}
+
+function dropSQLite3Database(name): Promise<void> {
+  const filename = `${DB_NAME}_${name}`;
+  return new Promise(resolve => {
+    fs.access(filename, error => {
+      if (!error) {
+        fs.unlink(filename, err => {
+          if (err) throw err;
+          resolve();
+        });
+      }
+    });
+  });
+}
+
+function createSQLite3Connection(name: string): Connection {
+  const database = `${DB_NAME}_${name}`;
+  return createConnection('sqlite3', { database });
+}
 
 function createMySQLDatabase(name: string, data = true): Promise<any> {
   const mysql = require('mysql');
@@ -108,20 +164,26 @@ export function getExampleData() {
 }
 
 export function createDatabase(name: string, data = true): Promise<any> {
-  return createMySQLDatabase(name, data);
+  return DB_TYPE === 'mysql'
+    ? createMySQLDatabase(name, data)
+    : createSQLite3Database(name);
 }
 
 export function dropDatabase(name: string): Promise<any> {
-  return dropMySQLDatabase(name);
+  return DB_TYPE === 'mysql'
+    ? dropMySQLDatabase(name)
+    : dropSQLite3Database(name);
 }
 
 export function createTestConnection(name: string): Connection {
-  return createMySQLConnection(name);
+  return DB_TYPE === 'mysql'
+    ? createMySQLConnection(name)
+    : createSQLite3Connection(name);
 }
 
 export function createTestConnectionPool(name: string): ConnectionPool {
   const database = `${DB_NAME}_${name}`;
-  return createConnectionPool('mysql', {
+  return createConnectionPool(DB_TYPE, {
     host: DB_HOST,
     user: DB_USER,
     password: DB_PASS,
@@ -157,7 +219,6 @@ parseString(fs.readFileSync(options.validate).toString(), (err, res) => {
   const key = keys[0].charAt(0).toUpperCase() + keys[0].slice(1);
   validateXstream(schema.model(key), res[keys[0]]);
 });
-*/
 
 function validateXstream(
   model: Model,
@@ -211,4 +272,6 @@ function validateXstream(
 function _xmlAttr(node: any, name: string) {
   return node.$ && (node.$ as any)[name];
 }
-process.on('unhandledRejection', r => console.log(r));
+*/
+
+process.on('unhandledRejection', console.log);

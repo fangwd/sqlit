@@ -349,13 +349,26 @@ function _flushTable(
       let i = 0;
       for (const entry of nameMap.values()) {
         let id = results[i++];
-        for (const record of entry.records) {
-          if (model.primaryKey.autoIncrement()) {
-            record.__setPrimaryKey(id++);
+        if (connection.dialect === 'sqlite3') {
+          // sqlite3 returns the "last" inserted id
+          for (let j = entry.records.length - 1; j >= 0; j--) {
+            const record = entry.records[j];
+            if (model.primaryKey.autoIncrement()) {
+              record.__setPrimaryKey(id--);
+            }
+            record.__state.selected = true;
+            record.__state.method = FlushMethod.UPDATE;
+            record.__inserted = true;
           }
-          record.__state.selected = true;
-          record.__state.method = FlushMethod.UPDATE;
-          record.__inserted = true;
+        } else {
+          for (const record of entry.records) {
+            if (model.primaryKey.autoIncrement()) {
+              record.__setPrimaryKey(id++);
+            }
+            record.__state.selected = true;
+            record.__state.method = FlushMethod.UPDATE;
+            record.__inserted = true;
+          }
         }
       }
     });

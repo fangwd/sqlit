@@ -68,6 +68,11 @@ export function createConnectionPool(
     result.name = connection.database;
     return result;
   }
+
+  if (dialect === 'sqlite3') {
+    return require('./sqlite3').default.createConnectionPool(connection);
+  }
+
   throw Error(`Unsupported engine type: ${dialect}`);
 }
 
@@ -77,6 +82,11 @@ export function createConnection(dialect: string, connection: any): Connection {
     result.name = connection.database;
     return result;
   }
+
+  if (dialect === 'sqlite3') {
+    return require('./sqlite3').default.createConnection(connection);
+  }
+
   throw Error(`Unsupported engine type: ${dialect}`);
 }
 
