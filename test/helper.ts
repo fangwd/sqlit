@@ -189,7 +189,7 @@ export function createTestConnectionPool(name: string): ConnectionPool {
     password: DB_PASS,
     database: database,
     timezone: 'Z',
-    connectionLimit: 10
+    connectionLimit: DB_TYPE === 'sqlite3' ? 1 : 10
   });
 }
 

@@ -7,32 +7,71 @@ import {
 
 import * as sqlite3 from 'sqlite3';
 
-class _ConnectionPool extends ConnectionPool {
-  private options: any;
-  private connection: _Connection;
-  private queue: [any, any][];
+interface PoolOptions {
+  connectionLimit: number;
+  database: string;
+}
 
-  constructor(options) {
+type Client = {
+  resolve: (connection: _Connection) => void;
+  reject: (reason: any) => void;
+};
+
+export class _ConnectionPool extends ConnectionPool {
+  options: PoolOptions;
+  pool: Array<_Connection>;
+  claimed: Array<_Connection>;
+  queue: Array<Client>;
+
+  constructor(options: PoolOptions) {
     super();
-    this.options = options;
+    this.options = { connectionLimit: 8, ...options };
+    this.pool = [];
+    this.claimed = [];
     this.queue = [];
-    this.connection = new _Connection(this.options);
-    this.connection._pool = this;
+  }
+
+  createConnection() {
+    const connection = new _Connection(this.options);
+    connection._pool = this;
+    this.pool.push(connection);
+    return connection;
+  }
+
+  get connectionCount() {
+    return this.pool.length + this.claimed.length;
   }
 
   getConnection(): Promise<Connection> {
     return new Promise<Connection>((resolve, reject) => {
-      this.queue.push([resolve, reject]);
-      if (this.queue.length === 1) {
-        resolve(this.connection);
+      const client = { resolve, reject };
+      if (this.pool.length > 0) {
+        this.dispatch(client);
+      } else if (this.connectionCount < this.options.connectionLimit) {
+        this.createConnection();
+        this.dispatch(client);
+      } else {
+        this.queue.push(client);
       }
     });
   }
 
-  reclaim() {
-    this.queue.shift();
+  dispatch(client: Client) {
+    const connection = this.pool.shift();
+    client.resolve(connection);
+    this.claimed.push(connection);
+  }
+
+  reclaim(connection: _Connection) {
+    const index = this.claimed.indexOf(connection);
+    if (index !== -1) {
+      this.claimed.splice(index, 1);
+    }
+    this.pool.push(connection);
+
     if (this.queue.length > 0) {
-      this.queue[0][0](this.connection);
+      const client = this.queue.shift();
+      this.dispatch(client);
     }
   }
 
@@ -67,7 +106,7 @@ class _Connection extends Connection {
 
   release() {
     if (this._pool) {
-      this._pool.reclaim();
+      this._pool.reclaim(this);
       return Promise.resolve();
     }
     return new Promise(resolve =>
