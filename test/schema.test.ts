@@ -10,7 +10,6 @@ afterAll(() => helper.dropDatabase(NAME));
 
 test('getInformationSchema', async done => {
   const connection = helper.createTestConnection(NAME);
-  console.log(connection.dialect);
   if (connection.dialect !== 'sqlite3') {
     const schemaInfo = await getInformationSchema(
       connection,

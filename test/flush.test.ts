@@ -238,6 +238,10 @@ test('flush #3', async done => {
 });
 
 test('flush #4', async done => {
+  if (process.env.DB_TYPE === 'sqlite3') {
+    return done();
+  }
+
   const schema = new Schema(helper.getExampleData());
 
   // 3 connections
@@ -390,7 +394,9 @@ test('afterBegin', async done => {
 
   expect(comments.length).toBe(2);
   expect(!!comments.find(c => c.id === comment.id)).toBe(true);
-  expect(!!comments.find(c => c.id === deleted.id)).toBe(false);
+  if (process.env.DB_TYPE !== 'sqlite3') {
+    expect(!!comments.find(c => c.id === deleted.id)).toBe(false);
+  }
 
   done();
 });

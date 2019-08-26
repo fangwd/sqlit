@@ -131,14 +131,14 @@ create table `store_product` (
 );
 
 create table post(
-  id int key auto_increment,
+  id integer primary key auto_increment,
   title varchar(100),
   user_id int,
   foreign key (user_id) references user(id)
 );
 
 create table comment(
-  id int key auto_increment,
+  id integer primary key auto_increment,
   post_id int,
   parent_id integer default null,
   content varchar(100),

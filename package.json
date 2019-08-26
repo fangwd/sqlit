@@ -42,7 +42,7 @@
       "^.+\\.tsx?$": "ts-jest"
     },
     "testEnvironment": "node",
-    "testRegex": "/test/flush\\.test.ts",
+    "testRegex": "/test/.+\\.test.ts",
     "moduleFileExtensions": [
       "ts",
       "tsx",

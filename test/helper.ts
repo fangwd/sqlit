@@ -10,7 +10,7 @@ import {
 import { Schema } from 'sqlex';
 import { Database } from '../src/database';
 
-const DB_TYPE = process.env.DB_TYPE || 'mysql';
+export const DB_TYPE = process.env.DB_TYPE || 'mysql';
 const DB_HOST = process.env.DB_HOST || 'localhost';
 const DB_USER = process.env.DB_USER || 'root';
 const DB_PASS = process.env.DB_PASS || 'secret';

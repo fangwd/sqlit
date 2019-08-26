@@ -529,7 +529,7 @@ export function flushDatabase(
 }
 
 function isIntegrityError(error) {
-  return /\bDuplicate\b/i.test(error.message);
+  return /\bDuplicate\b|UNIQUE constraint/i.test(error.message);
 }
 
 function isRetryable(error) {
@@ -549,7 +549,6 @@ export function dumpDirtyRecords(db: Database, all: boolean = false) {
       tables[table.model.name] = records;
     }
   }
-  console.log(JSON.stringify(tables, null, 4));
 }
 
 function makeMapTable(table: Table) {

@@ -21,6 +21,13 @@ test('copy', async done => {
 test('replace', async done => {
   const db = helper.connectToDatabase(NAME);
 
+  if (helper.DB_TYPE === 'sqlite3') {
+    // Note: This needs to change when sqlite3._ConnectionPool changes
+    const connection = await db.pool.getConnection();
+    await connection.query('PRAGMA foreign_keys=ON');
+    connection.release();
+  }
+
   {
     const data = { email: 'alice@example.com', lastName: 'Blue' };
     const user = await db.table('user').replace(data);

@@ -9,14 +9,31 @@ import * as sqlite3 from 'sqlite3';
 
 class _ConnectionPool extends ConnectionPool {
   private options: any;
+  private connection: _Connection;
+  private queue: [any, any][];
 
   constructor(options) {
     super();
     this.options = options;
+    this.queue = [];
+    this.connection = new _Connection(this.options);
+    this.connection._pool = this;
   }
 
   getConnection(): Promise<Connection> {
-    return Promise.resolve(new _Connection(this.options));
+    return new Promise<Connection>((resolve, reject) => {
+      this.queue.push([resolve, reject]);
+      if (this.queue.length === 1) {
+        resolve(this.connection);
+      }
+    });
+  }
+
+  reclaim() {
+    this.queue.shift();
+    if (this.queue.length > 0) {
+      this.queue[0][0](this.connection);
+    }
   }
 
   end(): Promise<void> {
@@ -33,6 +50,8 @@ class _ConnectionPool extends ConnectionPool {
 }
 
 class _Connection extends Connection {
+  _pool: _ConnectionPool;
+
   dialect: string = 'sqlite3';
   connection: sqlite3.Database;
   queryCounter: QueryCounter = new QueryCounter();
@@ -47,6 +66,10 @@ class _Connection extends Connection {
   }
 
   release() {
+    if (this._pool) {
+      this._pool.reclaim();
+      return Promise.resolve();
+    }
     return new Promise(resolve =>
       this.connection.close(err => {
         if (err) throw err;
@@ -60,8 +83,9 @@ class _Connection extends Connection {
     return new Promise((resolve, reject) => {
       if (/^\s*select\s/i.test(sql)) {
         this.connection.all(sql, function(err, rows) {
-          if (err) reject(err);
-          else {
+          if (err) {
+            reject(err);
+          } else {
             resolve(rows);
           }
         });

@@ -410,7 +410,7 @@ export class Table {
 
     const connection = await this.db.pool.getConnection();
     try {
-      connection.transaction(() =>
+      return connection.transaction(() =>
         this._delete(connection, filter).then(result => {
           connection.release();
           return result;

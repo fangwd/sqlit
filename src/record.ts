@@ -115,14 +115,18 @@ export class Record {
     if (!this.__dirty()) {
       return Promise.resolve(this);
     }
-    return this.__table.db.pool.getConnection().then(connection =>
-      connection.transaction(() =>
-        flushRecord(connection, this).then(result => {
-          connection.release();
-          return result;
-        })
-      )
-    );
+    return this.__table.db.pool.getConnection().then(connection => {
+      return new Promise(resolve => {
+        connection.transaction(() => {
+          flushRecord(connection, this).then(result => {
+            connection.commit().then(() => {
+              connection.release();
+              resolve(result);
+            });
+          });
+        });
+      });
+    });
   }
 
   update(data: Row = {}): Promise<any> {
