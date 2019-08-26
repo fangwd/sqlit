@@ -533,7 +533,7 @@ export class Table {
       return Promise.resolve(0);
     }
 
-    let sql = `update ${this._name()} set`;
+    let sql = `update ${this._name()} set `;
     let cnt = 0;
 
     const keys = Object.keys(data);
@@ -1080,6 +1080,8 @@ export class Table {
 
   claim(filter: Filter, data: Document, orderBy?: string[]): Promise<Document> {
     const self = this;
+    const MAX_TRY = 5;
+    let try_count = 0;
 
     return new Promise(resolve => {
       function _select() {
@@ -1094,13 +1096,26 @@ export class Table {
       }
 
       function _update(row) {
-        self.update(data, getUniqueFields(self.model, row)).then(result => {
-          if (result.changedRows === 1) {
-            resolve(row);
-          } else {
-            setTimeout(_select, Math.random() * 1000);
-          }
-        });
+        const where = { ...filter, ...getUniqueFields(self.model, row) };
+        self
+          .update(data, where)
+          .then(result => {
+            if (result.changedRows === 1) {
+              resolve(row);
+            } else if (try_count++ < MAX_TRY) {
+              setTimeout(_select, Math.random() * 1000);
+            } else {
+              throw Error('Too busy');
+            }
+          })
+          .catch(error => {
+            // Error: SQLITE_BUSY: database is locked
+            if (try_count++ < MAX_TRY) {
+              setTimeout(_select, Math.random() * 1000);
+            } else {
+              throw error;
+            }
+          });
       }
 
       _select();
