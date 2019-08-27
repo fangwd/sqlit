@@ -536,9 +536,11 @@ export function splitKey(arg: string): string[] {
   return [arg];
 }
 
-function plainify(value) {
+export function plainify(value) {
   if (Array.isArray(value)) {
-    return value.map(entry => plainify(entry));
+    return value
+      .filter(entry => entry !== undefined)
+      .map(entry => plainify(entry));
   } else if (isValue(value)) {
     return value;
   } else if (value instanceof Record) {

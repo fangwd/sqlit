@@ -1,5 +1,5 @@
 import { Schema } from 'sqlex';
-import { encodeFilter, QueryBuilder, splitKey } from '../src/filter';
+import { encodeFilter, QueryBuilder, splitKey, plainify } from '../src/filter';
 
 import helper = require('./helper');
 
@@ -236,4 +236,10 @@ test('empty result', async () => {
     connection
   );
   expect(rows.length).toBe(0);
+});
+
+test('plainify', () => {
+  const value = [undefined, 1, 2];
+  const result = plainify(value);
+  expect(result).toEqual([1, 2]);
 });
