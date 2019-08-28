@@ -1,14 +1,9 @@
-import {
-  Connection,
-  TransactionCallback,
-  QueryCounter,
-  ConnectionPool
-} from '.';
+import { Connection, QueryCounter, ConnectionPool } from '.';
 
-import mysql = require('mysql');
+import * as mysql from 'mysql';
 
 class _ConnectionPool extends ConnectionPool {
-  private pool: any;
+  private pool: mysql.Pool;
 
   constructor(options) {
     super();
@@ -18,7 +13,7 @@ class _ConnectionPool extends ConnectionPool {
   getConnection(): Promise<Connection> {
     return new Promise((resolve, reject) => {
       return this.pool.getConnection((error, connection) => {
-        if (error) reject(Error(error));
+        if (error) reject(Error(error.message));
         resolve(new _Connection(connection, true));
       });
     });
@@ -44,7 +39,7 @@ class _ConnectionPool extends ConnectionPool {
 
 class _Connection extends Connection {
   dialect: string = 'mysql';
-  connection: any;
+  connection: mysql.Connection | mysql.PoolConnection;
   queryCounter: QueryCounter = new QueryCounter();
 
   constructor(options, connected?: boolean) {
@@ -57,7 +52,10 @@ class _Connection extends Connection {
   }
 
   release() {
-    this.connection.release();
+    const connection = this.connection as mysql.PoolConnection;
+    if (typeof connection.release === 'function') {
+      connection.release();
+    }
   }
 
   query(sql: string): Promise<any[] | void> {
@@ -74,61 +72,6 @@ class _Connection extends Connection {
         }
       })
     );
-  }
-
-  transaction(callback: TransactionCallback): Promise<any> {
-    return new Promise((resolve, reject) => {
-      return this.connection.beginTransaction(error => {
-        if (error) return reject(error);
-        let promise;
-        try {
-          promise = callback(this);
-        } catch (error) {
-          return this.connection.rollback(() => {
-            reject(error);
-          });
-        }
-        if (promise instanceof Promise) {
-          return promise
-            .then(result =>
-              this.connection.commit(error => {
-                if (error) {
-                  return this.connection.rollback(() => {
-                    reject(error);
-                  });
-                } else {
-                  resolve(result);
-                }
-              })
-            )
-            .catch(reason =>
-              this.connection.rollback(() => {
-                reject(reason);
-              })
-            );
-        } else {
-          resolve();
-        }
-      });
-    });
-  }
-
-  commit(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      this.connection.commit(error => {
-        if (error) reject(error);
-        else resolve();
-      });
-    });
-  }
-
-  rollback(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      this.connection.rollback(error => {
-        if (error) reject(error);
-        else resolve();
-      });
-    });
   }
 
   end(): Promise<void> {

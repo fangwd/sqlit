@@ -1,9 +1,4 @@
-import {
-  Connection,
-  TransactionCallback,
-  QueryCounter,
-  ConnectionPool
-} from '.';
+import { Connection, QueryCounter, ConnectionPool } from '.';
 
 import * as sqlite3 from 'sqlite3';
 
@@ -43,8 +38,8 @@ export class _ConnectionPool extends ConnectionPool {
   }
 
   getConnection(): Promise<Connection> {
-    return new Promise<Connection>((resolve, reject) => {
-      const client = { resolve, reject };
+    return new Promise<_Connection>((resolve, reject) => {
+      const client: Client = { resolve, reject };
       if (this.pool.length > 0) {
         this.dispatch(client);
       } else if (this.connectionCount < this.options.connectionLimit) {
@@ -143,61 +138,6 @@ class _Connection extends Connection {
           }
         });
       }
-    });
-  }
-
-  private beginTransaction(callback: (error) => void) {
-    return this.connection.run('BEGIN TRANSACTION', callback);
-  }
-
-  transaction(callback: TransactionCallback): Promise<any> {
-    return new Promise((resolve, reject) => {
-      return this.beginTransaction(error => {
-        if (error) return reject(error);
-        let promise;
-        try {
-          promise = callback(this);
-        } catch (error) {
-          return this.rollback().then(() => reject(error));
-        }
-        if (promise instanceof Promise) {
-          return promise
-            .then(result =>
-              this.commit()
-                .then(() => resolve(result))
-                .catch(error => {
-                  return this.rollback().then(() => {
-                    reject(error);
-                  });
-                })
-            )
-            .catch(reason => {
-              this.rollback().then(() => {
-                reject(reason);
-              });
-            });
-        } else {
-          resolve();
-        }
-      });
-    });
-  }
-
-  commit(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      this.connection.run('COMMIT', error => {
-        if (error) reject(error);
-        else resolve();
-      });
-    });
-  }
-
-  rollback(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      this.connection.run('ROLLBACK', error => {
-        if (error) reject(error);
-        else resolve();
-      });
     });
   }
 

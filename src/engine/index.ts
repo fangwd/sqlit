@@ -30,8 +30,11 @@ export abstract class Connection implements Dialect {
   name: string;
   queryCounter: QueryCounter;
 
-  abstract query(sql: string): Promise<any>;
-  abstract transaction(callback: TransactionCallback): Promise<any>;
+  abstract query(sql: string, pk?: string): Promise<any>;
+
+  beginTransaction(): Promise<void> {
+    return this.query('begin');
+  }
 
   commit(): Promise<void> {
     return this.query('commit');
@@ -46,6 +49,22 @@ export abstract class Connection implements Dialect {
 
   abstract escape(s: string): string;
   abstract escapeId(name: string): string;
+
+  async transaction(callback: TransactionCallback) {
+    await this.beginTransaction();
+    try {
+      const promise = callback(this);
+      if (promise instanceof Promise) {
+        const result = await promise;
+        this.commit();
+        return result;
+      }
+      // else: caller has dealt with the transaction
+    } catch (error) {
+      this.rollback();
+      throw error;
+    }
+  }
 }
 
 export abstract class ConnectionPool implements Dialect {
@@ -73,6 +92,10 @@ export function createConnectionPool(
     return require('./sqlite3').default.createConnectionPool(connection);
   }
 
+  if (dialect === 'postgres') {
+    return require('./postgres').default.createConnectionPool(connection);
+  }
+
   throw Error(`Unsupported engine type: ${dialect}`);
 }
 
@@ -85,6 +108,10 @@ export function createConnection(dialect: string, connection: any): Connection {
 
   if (dialect === 'sqlite3') {
     return require('./sqlite3').default.createConnection(connection);
+  }
+
+  if (dialect === 'postgres') {
+    return require('./postgres').default.createConnection(connection);
   }
 
   throw Error(`Unsupported engine type: ${dialect}`);
