@@ -160,7 +160,10 @@ export class Record {
     const data = this.__data;
 
     if (!this.__table.model.checkUniqueKey(data, isEmpty)) {
-      if (!this.__table.model.primaryKey.autoIncrement) {
+      if (
+        this.__table.model.uniqueKeys.length > 1 ||
+        !this.__table.model.primaryKey.autoIncrement()
+      ) {
         return false;
       }
     } else if (this.__state.method === FlushMethod.DELETE) {
