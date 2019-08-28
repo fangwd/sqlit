@@ -53,8 +53,8 @@ create table category_tree (
 
 create table product (
   id integer primary key auto_increment,
-  sku char(40) unique,
-  name char(200),
+  sku varchar(40) unique,
+  name varchar(200),
   price float,
   stock_quantity float,
   status int
@@ -81,7 +81,7 @@ create table delivery_address (
 
 create table `order` (
   id integer primary key auto_increment,
-  code char(40) unique,
+  code varchar(40) unique,
   date_created datetime default current_timestamp,
   user_id integer default null,
   delivery_address_id integer default null,
@@ -110,7 +110,7 @@ create table `order_shipping_event` (
   id integer primary key auto_increment,
   order_shipping_id integer,
   event_time datetime,
-  event_description char(200),
+  event_description varchar(200),
   foreign key (order_shipping_id) references order_shipping(order_id) on delete cascade,
   unique (order_shipping_id, event_time)
 );
