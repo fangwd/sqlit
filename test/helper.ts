@@ -75,6 +75,80 @@ function createSQLite3Connection(name: string): Connection {
   return createConnection('sqlite3', { database });
 }
 
+async function createPostgresClient(db?: string) {
+  const { Client } = require('pg');
+
+  const client = new Client({
+    user: DB_USER,
+    host: DB_HOST,
+    database: db || 'postgres',
+    password: DB_PASS
+  });
+
+  await client.connect();
+
+  return client;
+}
+
+function createPostgresConnection(name: string): Connection {
+  return createConnection('postgres', {
+    user: DB_USER,
+    host: DB_HOST,
+    database: getDatabaseName(name),
+    password: DB_PASS
+  });
+}
+
+export async function createPostgresDatabase(
+  name: string,
+  data = true
+): Promise<any> {
+  const client = await createPostgresClient();
+  const database = getDatabaseName(name);
+  await client.query(`drop database if exists "${database}"`);
+  await client.query(`create database "${database}"`);
+  await client.end();
+
+  const db = await createPostgresClient(database);
+
+  const sql = SCHEMA + (data ? DATA : '');
+
+  const lines = sql
+    .split(';')
+    .filter(line => line.trim())
+    .map(line =>
+      line
+        .replace(/\bdatetime\b/, 'timestamp(3)')
+        .replace(/\buser\b/, '"user"')
+        .replace(/`/g, '"')
+        .replace(/integer primary key auto_increment/, 'serial primary key')
+    );
+
+  for (const line of lines) {
+    await db.query(line);
+  }
+
+  const schema = new Schema(getExampleData());
+  for (const model of schema.models) {
+    if (model.primaryKey.autoIncrement()) {
+      const table = model.table.name;
+      const id = model.keyField().column.name;
+      const seq = `${table}_${id}_seq`;
+      await db.query(
+        `SELECT setval('${seq}', COALESCE((SELECT MAX("${id}")+1 FROM "${table}"), 1), false)`
+      );
+    }
+  }
+
+  return db;
+}
+
+export async function dropPostgresDatabase(name: string): Promise<void> {
+  const client = await createPostgresClient();
+  const database = getDatabaseName(name);
+  await client.query(`drop database if exists "${database}"`);
+  await client.end();
+}
 function createMySQLDatabase(name: string, data = true): Promise<any> {
   const mysql = require('mysql');
   const database = `${DB_NAME}_${name}`;
@@ -164,21 +238,42 @@ export function getExampleData() {
 }
 
 export function createDatabase(name: string, data = true): Promise<any> {
-  return DB_TYPE === 'mysql'
-    ? createMySQLDatabase(name, data)
-    : createSQLite3Database(name);
+  switch (DB_TYPE) {
+    case 'mysql':
+      return createMySQLDatabase(name, data);
+    case 'sqlite3':
+      return createSQLite3Database(name);
+    case 'postgres':
+      return createPostgresDatabase(name);
+    default:
+      throw Error(`Unsupported engine type: ${DB_TYPE}`);
+  }
 }
 
 export function dropDatabase(name: string): Promise<any> {
-  return DB_TYPE === 'mysql'
-    ? dropMySQLDatabase(name)
-    : dropSQLite3Database(name);
+  switch (DB_TYPE) {
+    case 'mysql':
+      return dropMySQLDatabase(name);
+    case 'sqlite3':
+      return dropSQLite3Database(name);
+    case 'postgres':
+      return dropPostgresDatabase(name);
+    default:
+      throw Error(`Unsupported engine type: ${DB_TYPE}`);
+  }
 }
 
 export function createTestConnection(name: string): Connection {
-  return DB_TYPE === 'mysql'
-    ? createMySQLConnection(name)
-    : createSQLite3Connection(name);
+  switch (DB_TYPE) {
+    case 'mysql':
+      return createMySQLConnection(name);
+    case 'sqlite3':
+      return createSQLite3Connection(name);
+    case 'postgres':
+      return createPostgresConnection(name);
+    default:
+      throw Error(`Unsupported engine type: ${DB_TYPE}`);
+  }
 }
 
 export function createTestConnectionPool(name: string): ConnectionPool {
