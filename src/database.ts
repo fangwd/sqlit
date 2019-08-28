@@ -330,9 +330,15 @@ export class Table {
         if (field instanceof ForeignKeyField) {
           const table = this.db.table(field.referencedField.model);
           if (shouldSelectSeparately(table.model, value)) {
-            const values: Value[] = result.map(row =>
-              table.model.keyValue(row[field.name] as Document)
-            );
+            const values: Value[] = [];
+            for (const row of result) {
+              const doc = row[field.name] as Document;
+              if (doc === null) {
+                values.push(null);
+              } else {
+                values.push(table.model.keyValue(doc));
+              }
+            }
             const docs = await table.select(
               value,
               {
@@ -570,7 +576,7 @@ export class Table {
     const value = keys.map(key => this.escapeValue(key, data[key])).join(', ');
     const sql = `insert into ${this._name()} (${name}) values (${value})`;
     return connection
-      .query(sql)
+      .query(sql, this.model.keyField().column.name)
       .then(insertId => (typeof insertId === 'number' ? insertId : 0));
   }
 

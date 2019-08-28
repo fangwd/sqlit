@@ -237,7 +237,6 @@ function _flushTable(
   perfect: number
 ): Promise<number> {
   mergeRecords(table);
-
   const filter = [];
   const nameSet = new Set();
   const recordSet = new Set();
@@ -529,7 +528,8 @@ export function flushDatabase(
 }
 
 function isIntegrityError(error) {
-  return /\bDuplicate\b|UNIQUE constraint/i.test(error.message);
+  // postgres: duplicate key value violates unique constraint "order_pkey"
+  return /\bDuplicate\b|UNIQUE constraint/i.test(error.message || error.error);
 }
 
 function isRetryable(error) {
@@ -589,8 +589,7 @@ export function _insertRecords(
 
   const into = escape(table.name);
   const query = `insert into ${into} (${columns}) values ${values.join(',')}`;
-
-  return connection.query(query);
+  return connection.query(query, table.model.keyField().column.name);
 }
 
 export async function replaceRecord(
