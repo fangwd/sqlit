@@ -15,7 +15,8 @@ export function createNode(
   const closureTable = dialect.escapeId(closure.table.model.table.name);
   const ancestor = dialect.escapeId(closure.ancestor.column.name);
   const descendant = dialect.escapeId(closure.descendant.column.name);
-  const keyValue = dialect.escape(table.model.keyValue(row) + '');
+  // Note: assuming keyValue is integer; need escape(value, field) otherwise
+  const keyValue = parseInt(table.model.keyValue(row) + '');
 
   let depth: string, depth_1: string, depth_0: string;
   if (closure.depth) {
@@ -27,7 +28,7 @@ export function createNode(
   }
 
   const value = table.model.valueOf(row, table.getParentField());
-  const where = value ? `= ${dialect.escape(value + '')}` : 'is null';
+  const where = value ? `= ${parseInt(value + '')}` : 'is null';
 
   const sql =
     `insert into ${closureTable} (${ancestor}, ${descendant}${depth}) ` +
