@@ -148,20 +148,24 @@ function _persist(connection: Connection, record: Record): Promise<Record> {
   }
 
   return new Promise((resolve, reject) => {
-    function _insert() {
+    async function _insert() {
+      await connection.query('SAVEPOINT sp');
       record.__table
         ._insert(connection, fields)
-        .then(id => {
+        .then(async id => {
           if (record.__primaryKey() === undefined) {
             record.__setPrimaryKey(id);
           }
           record.__remove_dirty(Object.keys(fields));
           record.__state.method = FlushMethod.UPDATE;
           record.__inserted = true;
+          await connection.query('RELEASE SAVEPOINT sp');
           resolve(record);
         })
-        .catch(error => {
+        .catch(async error => {
           if (!isIntegrityError(error)) return reject(error);
+
+          await connection.query('ROLLBACK TO SAVEPOINT sp');
 
           if (Object.keys(fields).length === 1) {
             const name = Object.keys(fields)[0];
