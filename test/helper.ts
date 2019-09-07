@@ -149,6 +149,86 @@ export async function dropPostgresDatabase(name: string): Promise<void> {
   await client.query(`drop database if exists "${database}"`);
   await client.end();
 }
+
+function createMssqlConnection(name?: string): Connection {
+  const config = {
+    server: DB_HOST,
+    options: { encrypt: true, database: name && getDatabaseName(name) },
+    authentication: {
+      type: 'default',
+      options: {
+        userName: DB_USER,
+        password: DB_PASS
+      }
+    }
+  };
+
+  return createConnection('mssql', config);
+}
+
+export async function createMssqlDatabase(name: string): Promise<any> {
+  const connection = createMssqlConnection();
+
+  const database = getDatabaseName(name);
+
+  await connection.query(`drop database if exists [${database}]`);
+  await connection.query(`create database [${database}]`);
+
+  await connection.query(`USE [${database}]`);
+
+  const lines = SCHEMA.split(';')
+    .filter(line => line.trim())
+    .map(line =>
+      line
+        .replace(/`([^`]+)`/g, '[$1]')
+        .replace(/\buser\b/, '[user]')
+        // Introducing FOREIGN KEY constraint on table 'category' may cause cycles
+        // or multiple cascade paths. Specify ON DELETE NO ACTION or ON UPDATE NO
+        // ACTION, or modify other FOREIGN KEY constraints.
+        .replace(/(foreign key \(parent_id\) references \w+\(id\)).+,/, '$1,')
+        .replace(
+          /integer primary key auto_increment/,
+          'int identity(1,1) primary key'
+        )
+    );
+
+  for (const line of lines) {
+    await connection.query(line);
+  }
+
+  for (const line of DATA.split(';')) {
+    if (line.trim().length > 0) {
+      const stmt = line
+        .replace(/`([^`]+)`/g, '[$1]')
+        .replace(/\buser\b/, '[user]');
+      // At any time, only one table in a session can have the
+      // IDENTITY_INSERT property set to ON
+      if (!/\]?\s*\(id/i.test(stmt)) {
+        // Explicit value must be specified for identity column...
+        await connection.query(stmt);
+      } else {
+        const table = /insert\s+into\s+\[?(\w+)\]?[\s()]/i.exec(stmt)[1];
+        const on = `set identity_insert [${table}] on`;
+        const off = `set identity_insert [${table}] off`;
+        try {
+          await connection.query(`${on};${stmt};${off};`);
+        } catch (error) {
+          throw error;
+        }
+      }
+    }
+  }
+
+  await connection.end();
+}
+
+export async function dropMssqlDatabase(name: string): Promise<void> {
+  const client = await createPostgresClient();
+  const database = getDatabaseName(name);
+  await client.query(`drop database if exists "${database}"`);
+  await client.end();
+}
+
 function createMySQLDatabase(name: string, data = true): Promise<any> {
   const mysql = require('mysql');
   const database = `${DB_NAME}_${name}`;
@@ -245,6 +325,8 @@ export function createDatabase(name: string, data = true): Promise<any> {
       return createSQLite3Database(name);
     case 'postgres':
       return createPostgresDatabase(name);
+    case 'mssql':
+      return createMssqlDatabase(name);
     default:
       throw Error(`Unsupported engine type: ${DB_TYPE}`);
   }
@@ -271,6 +353,8 @@ export function createTestConnection(name: string): Connection {
       return createSQLite3Connection(name);
     case 'postgres':
       return createPostgresConnection(name);
+    case 'mssql':
+      return createMssqlConnection(name);
     default:
       throw Error(`Unsupported engine type: ${DB_TYPE}`);
   }
@@ -278,6 +362,21 @@ export function createTestConnection(name: string): Connection {
 
 export function createTestConnectionPool(name: string): ConnectionPool {
   const database = `${DB_NAME}_${name}`;
+
+  if (DB_TYPE === 'mssql') {
+    return createConnectionPool(DB_TYPE, {
+      server: DB_HOST,
+      options: { encrypt: true, database: name && getDatabaseName(name) },
+      authentication: {
+        type: 'default',
+        options: {
+          userName: DB_USER,
+          password: DB_PASS
+        }
+      }
+    });
+  }
+
   return createConnectionPool(DB_TYPE, {
     host: DB_HOST,
     user: DB_USER,

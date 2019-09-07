@@ -352,7 +352,7 @@ function _flushTable(
       let i = 0;
       for (const entry of nameMap.values()) {
         let id = results[i++];
-        if (connection.dialect === 'sqlite3') {
+        if (/sqlite3|mssql/.test(connection.dialect)) {
           // sqlite3 returns the "last" inserted id
           for (let j = entry.records.length - 1; j >= 0; j--) {
             const record = entry.records[j];

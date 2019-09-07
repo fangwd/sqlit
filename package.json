@@ -27,10 +27,12 @@
     "@types/node": "^9.4.7",
     "@types/pg": "^7.11.0",
     "@types/sqlite3": "^3.1.5",
+    "@types/tedious": "^4.0.0",
     "jest": "^22.4.1",
     "mysql": "^2.16.0",
     "pg": "^7.12.1",
     "sqlite3": "^4.0.2",
+    "tedious": "^6.3.0",
     "ts-jest": "^22.4.1",
     "typescript": "*"
   },
@@ -43,7 +45,7 @@
       "^.+\\.tsx?$": "ts-jest"
     },
     "testEnvironment": "node",
-    "testRegex": "/test/.+\\.test.ts",
+    "testRegex": "/test/insert\\.test.ts",
     "moduleFileExtensions": [
       "ts",
       "tsx",

@@ -1,5 +1,6 @@
 import { getInformationSchema } from './information_schema';
-import { Value } from 'sqlex';
+import { Table, _toCamel } from '../database';
+import { Model, Value, SimpleField } from 'sqlex';
 
 export interface ConnectionInfo {
   dialect: string;
@@ -56,14 +57,61 @@ export abstract class Connection implements Dialect {
       const promise = callback(this);
       if (promise instanceof Promise) {
         const result = await promise;
-        this.commit();
+        await this.commit();
         return result;
       }
       // else: caller has dealt with the transaction
     } catch (error) {
-      this.rollback();
+      await this.rollback();
       throw error;
     }
+  }
+
+  private escapeInsertValues(
+    model: Model,
+    columns: string[],
+    values: Value[]
+  ): string {
+    if (values.length !== columns.length) {
+      throw Error('Columns and values do not match');
+    }
+    return (
+      '(' +
+      columns
+        .map((column, index) => {
+          const field = model.field(column);
+          const value = _toCamel(values[index], field as SimpleField);
+          return typeof value === 'string' ? this.escape(value) : value;
+        })
+        .join(',') +
+      ')'
+    );
+  }
+
+  insert(table: Table, columns: string[], values: Value[][] | Value[]) {
+    if (columns.length === 0 || values.length === 0) {
+      throw Error('Missing columns/values');
+    }
+    const tab = this.escapeId(table.name);
+    const cols = columns.map(this.escapeId).join(',');
+    const vals = Array.isArray(values[0])
+      ? (values as Value[][]).map(row =>
+          this.escapeInsertValues(table.model, columns, row)
+        )
+      : this.escapeInsertValues(table.model, columns, values as Value[]);
+    const sql = `insert into ${tab} (${cols}) values ${vals}`;
+    if (this.dialect === 'mssql') {
+      const pk = table.model.keyField().column;
+      if (pk.autoIncrement && columns.indexOf(pk.name) !== -1) {
+        const on = `set identity_insert ${tab} on`;
+        const ext = 'select scope_identity() as insertId';
+        const off = `set identity_insert ${tab} off`;
+        return this.query(`${on};${sql};${ext};${off}`).then(
+          res => res.rows[0].insertId
+        );
+      }
+    }
+    return this.query(sql);
   }
 }
 
@@ -96,6 +144,10 @@ export function createConnectionPool(
     return require('./postgres').default.createConnectionPool(connection);
   }
 
+  if (dialect === 'mssql') {
+    return require('./mssql').default.createConnectionPool(connection);
+  }
+
   throw Error(`Unsupported engine type: ${dialect}`);
 }
 
@@ -112,6 +164,10 @@ export function createConnection(dialect: string, connection: any): Connection {
 
   if (dialect === 'postgres') {
     return require('./postgres').default.createConnection(connection);
+  }
+
+  if (dialect === 'mssql') {
+    return require('./mssql').default.createConnection(connection);
   }
 
   throw Error(`Unsupported engine type: ${dialect}`);
