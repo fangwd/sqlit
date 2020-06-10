@@ -95,7 +95,7 @@ class Builder {
       for (const row of rows) {
         set.add(row.table_name);
       }
-      return set;
+      return set as any;
     });
   }
 
