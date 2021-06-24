@@ -74,7 +74,7 @@ export class Database {
     }, {});
   }
 
-  buildSchema(config?: SchemaConfig): Promise<Schema> {
+  async buildSchema(config?: SchemaConfig): Promise<Schema> {
     if (this.schema) return Promise.resolve(this.schema);
     return new Promise(resolve =>
       this.pool.getConnection().then(connection =>

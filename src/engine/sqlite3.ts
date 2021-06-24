@@ -1,4 +1,4 @@
-import { Connection, QueryCounter, ConnectionPool } from '.';
+import { Connection, QueryCounter, ConnectionPool, Dialect } from '.';
 
 import * as sqlite3 from 'sqlite3';
 
@@ -86,7 +86,7 @@ export class _ConnectionPool extends ConnectionPool {
 class _Connection extends Connection {
   _pool: _ConnectionPool;
 
-  dialect: string = 'sqlite3';
+  dialect: Dialect = 'sqlite3';
   connection: sqlite3.Database;
   queryCounter: QueryCounter = new QueryCounter();
 
@@ -99,7 +99,7 @@ class _Connection extends Connection {
     }
   }
 
-  release() {
+  release(): Promise<void> {
     if (this._pool) {
       this._pool.reclaim(this);
       return Promise.resolve();

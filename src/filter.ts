@@ -18,7 +18,7 @@ import {
   isValue
 } from 'sqlex';
 
-import { Dialect } from './engine';
+import { DialectEncoder } from './engine';
 import { toArray } from './misc';
 
 export interface AliasEntry {
@@ -63,7 +63,7 @@ export class QueryBuilder {
   field?: Field;
   parent?: QueryBuilder;
 
-  dialect: Dialect;
+  dialect: DialectEncoder;
   context?: Context;
   alias?: string;
 
@@ -80,10 +80,10 @@ export class QueryBuilder {
   }
 
   // (model, dialect), or (parent, field)
-  constructor(model: Model | QueryBuilder, dialect: Dialect | Field) {
+  constructor(model: Model | QueryBuilder, dialect: DialectEncoder | Field) {
     if (model instanceof Model) {
       this.model = model;
-      this.dialect = dialect as Dialect;
+      this.dialect = dialect as DialectEncoder;
       this.context = new Context();
     } else {
       this.parent = model;
@@ -497,7 +497,7 @@ export class QueryBuilder {
 export function encodeFilter(
   args: Filter,
   model: Model,
-  escape: Dialect
+  escape: DialectEncoder
 ): string {
   const builder = new QueryBuilder(model, escape);
   return builder.where(args);

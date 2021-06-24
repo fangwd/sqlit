@@ -429,7 +429,7 @@ function mergeRecords(table: Table) {
   }
 }
 
-function flushDatabaseA(connection: Connection, db: Database): Promise<any> {
+function flushDatabaseA(connection: Connection, db: Database): Promise<void> {
   return new Promise((resolve, reject) => {
     function _flush() {
       const promises = db.tableList.map(table =>
@@ -449,7 +449,7 @@ function flushDatabaseA(connection: Connection, db: Database): Promise<any> {
   });
 }
 
-export function flushDatabaseB(connection: Connection, db: Database) {
+export function flushDatabaseB(connection: Connection, db: Database): Promise<void> {
   return new Promise((resolve, reject) => {
     let waiting = 0;
     function _flush() {
@@ -487,7 +487,7 @@ export function flushDatabase(
   connection: Connection,
   db: Database,
   options: FlushOptions = {}
-) {
+): Promise<void> {
   let { afterBegin, beforeCommit } = options;
 
   afterBegin = afterBegin || ((c: Connection) => Promise.resolve());

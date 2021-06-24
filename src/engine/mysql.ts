@@ -1,4 +1,4 @@
-import { Connection, QueryCounter, ConnectionPool } from '.';
+import { Connection, QueryCounter, ConnectionPool, Dialect } from '.';
 
 import * as mysql from 'mysql';
 
@@ -38,7 +38,7 @@ class _ConnectionPool extends ConnectionPool {
 }
 
 class _Connection extends Connection {
-  dialect: string = 'mysql';
+  dialect: Dialect = 'mysql';
   connection: mysql.Connection | mysql.PoolConnection;
   queryCounter: QueryCounter = new QueryCounter();
 

@@ -5,11 +5,16 @@ import {
   Column as ColumnInfo,
   Constraint as ConstraintInfo
 } from 'sqlex';
+import { lower, queryInformationSchema as query } from './util';
 
 export function getInformationSchema(
   connection: Connection,
   schemaName: string
 ): Promise<SchemaInfo> {
+  if (connection.dialect === 'postgres') {
+    const Builder = require('./postgres').default.SchemaBuilder;
+    return new Builder(connection, schemaName).getResult();
+  }
   return new Builder(connection, schemaName).getResult();
 }
 
@@ -183,16 +188,4 @@ class Builder {
       return map;
     });
   }
-}
-
-function lower(row: { [key: string]: any }) {
-  const result = {};
-  for (const key in row) {
-    result[key.toLowerCase()] = row[key];
-  }
-  return result;
-}
-
-function query(connection: Connection, query: string) {
-  return connection.query(query).then(rows => rows.map(row => lower(row)));
 }

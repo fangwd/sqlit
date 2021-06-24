@@ -1,9 +1,11 @@
 import { getInformationSchema } from './information_schema';
 import { Value } from 'sqlex';
 
+export type Dialect = 'mysql' | 'postgres' | 'mssql' | 'oracle' | 'sqlite3';
+
 export interface ConnectionInfo {
-  dialect: string;
-  connection: any;
+  dialect: Dialect;
+  connection: { [key: string]: any };
 }
 
 export type Row = {
@@ -18,14 +20,13 @@ export type TransactionCallback = (
   connection: Connection
 ) => Promise<any> | void;
 
-export interface Dialect {
-  dialect: string;
+export interface DialectEncoder {
   escape: (unsafe: any) => string;
   escapeId: (unsafe: string) => string;
 }
 
-export abstract class Connection implements Dialect {
-  dialect: string;
+export abstract class Connection implements DialectEncoder {
+  dialect: Dialect;
   connection: any;
   name: string;
   queryCounter: QueryCounter;
@@ -67,8 +68,8 @@ export abstract class Connection implements Dialect {
   }
 }
 
-export abstract class ConnectionPool implements Dialect {
-  dialect: string;
+export abstract class ConnectionPool implements DialectEncoder {
+  dialect: Dialect;
   name: string;
 
   abstract getConnection(): Promise<Connection>;
@@ -79,7 +80,7 @@ export abstract class ConnectionPool implements Dialect {
 }
 
 export function createConnectionPool(
-  dialect: string,
+  dialect: Dialect,
   connection: any
 ): ConnectionPool {
   if (dialect === 'mysql') {
