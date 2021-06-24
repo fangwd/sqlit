@@ -6,12 +6,10 @@ const {
   printSchema,
   exportSchemaJava,
   printSchemaTypeScript,
-  pluraliser,
   XstreamSerialiser,
   selectTree,
   getReferencingFields,
   setModelName,
-  ForeignKeyField
 } = require('../dist');
 
 const getopt = require('../lib/getopt');
@@ -46,8 +44,6 @@ const options = getopt([
       timezone: 'Z'
     }
   });
-
-  pluraliser.style = 'java';
 
   if (options.config) {
     const config = JSON.parse(fs.readFileSync(options.config).toString());
@@ -131,7 +127,6 @@ const options = getopt([
   } else {
     print(schema.database, null, 4);
   }
-
   db.end();
 })();
 

@@ -1,6 +1,6 @@
 {
   "name": "sqlit",
-  "version": "1.9.6",
+  "version": "2.0.0",
   "description": "Sqlit - A library that makes database access easy and fun",
   "main": "./dist/index.js",
   "files": [
@@ -25,12 +25,8 @@
     "@types/jest": "^22.2.0",
     "@types/mysql": "^2.15.4",
     "@types/node": "^9.4.7",
-    "@types/pg": "^7.11.0",
     "@types/sqlite3": "^3.1.5",
     "jest": "^22.4.1",
-    "mysql": "^2.16.0",
-    "pg": "^7.12.1",
-    "sqlite3": "^4.0.2",
     "ts-jest": "^22.4.1",
     "typescript": "*"
   },

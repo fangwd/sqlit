@@ -224,6 +224,16 @@ const docs = await db.table('category').xselect(config);
 
 More examples can be found in the `test` folder.
 
+## Command line interface
+
+sqlit comes with a command line tool that does a few useful things.
+
+To dump the database schema into a json file:
+
+```
+node_modules/sqlit/bin/sqlit.js --dialect postgres -u user1 -p secret1 mydb
+```
+
 # Debugging
 
 ## Using Chrome
