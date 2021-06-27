@@ -1,3 +1,5 @@
+**[DEPRECATED] This library is not actively maintained any more. Please use [sqlex](https://github.com/fangwd/sqlex) instead.**
+
 _sqlit_ is a library to help retrieve, update, import and export data from a relational database easily. Apart from standard database relations like one-to-one, many-to-one and many-to-many, it also has built-in support for hierarchical data (trees) using closure tables, including cloning a tree rooted at a specific object.
 
 # Installation
